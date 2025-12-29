@@ -1,0 +1,38 @@
+assets:
+  - name: ingest_sftp_to_s3
+    description: "Step 1: Ingest raw files from SFTP to S3"
+    group: "multi_step_testing"
+    source:
+      type: SFTP
+      connection: sftp_prod
+      configs:
+        path: "{{ params.source_path }}"
+        pattern: "{{ params.source_pattern }}"
+    target:
+      type: S3
+      connection: s3_prod
+      configs:
+        bucket_name: "{{ params.target_bucket }}"
+        key: "raw/{{ source.item.file_name }}"
+
+  - name: process_s3_to_s3
+    description: "Step 2: Transform/Move data within S3"
+    group: "multi_step_testing"
+    ins:
+      ingest_sftp_to_s3: {}
+    source:
+      type: S3
+      connection: s3_prod
+      configs:
+        bucket_name: "{{ params.target_bucket }}"
+        key: "raw/{{ source.item.file_name }}"
+    target:
+      type: S3
+      connection: s3_prod
+      configs:
+        bucket_name: "{{ params.target_bucket }}"
+        key: "processed/{{ source.item.file_name }}"
+
+jobs:
+  - name: cross_ref_multi_asset_job
+    selection: ["ingest_sftp_to_s3", "process_s3_to_s3"]

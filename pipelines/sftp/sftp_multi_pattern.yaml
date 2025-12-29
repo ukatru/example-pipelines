@@ -1,0 +1,24 @@
+assets:
+  - name: sftp_multi_pattern_extraction
+    source:
+      type: SFTP
+      connection: sftp_prod
+      configs:
+        path: /outgoing/multi_pattern/
+        pattern: "orders_.*\\.csv"
+        # Only process files larger than 1KB
+        predicate: "source.item.size > 1024"
+
+sensors:
+  - name: sftp_multi_pattern_sensor
+    type: SFTP
+    connection: sftp_prod
+    job: sftp_multi_pattern_job
+    configs:
+      path: /outgoing/multi_pattern/
+      pattern: "orders_.*\\.csv"
+      predicate: "source.item.size > 1024"
+
+jobs:
+  - name: sftp_multi_pattern_job
+    selection: [sftp_multi_pattern_extraction]

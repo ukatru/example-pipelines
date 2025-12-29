@@ -1,0 +1,33 @@
+assets:
+  - name: example_sftp_to_s3
+    group: example
+    description: "Standard SFTP to S3 transfer example"
+    source:
+      type: SFTP
+      connection: sftp_prod
+      configs:
+        path: /outgoing/test_data/
+        pattern: ".*\\.csv"
+        check_is_modifying: true
+    target:
+      type: S3
+      connection: s3_prod
+      configs:
+        bucket_name: "my-dagster-poc"
+        prefix: "landing/sftp_test/"
+        mode: COPY
+    max_workers: 5
+
+sensors:
+  - name: example_sftp_sensor
+    type: SFTP
+    connection: sftp_prod
+    job: example_sftp_to_s3_job
+    configs:
+      path: /outgoing/test_data/
+      pattern: ".*\\.csv"
+      check_is_modifying: true
+
+jobs:
+  - name: example_sftp_to_s3_job
+    selection: [example_sftp_to_s3]
