@@ -1,0 +1,12 @@
+assets:
+  - name: debug_context
+    description: "Troubleshooting asset to print all available runtime variables."
+    group_name: "debug"
+    source:
+      type: CONTEXT
+      connection: s3_prod # Dummy connection to pass schema validation
+    tags:
+      owner: "platform_team"
+      env: "debug"
+    metadata:
+      purpose: "Investigation"

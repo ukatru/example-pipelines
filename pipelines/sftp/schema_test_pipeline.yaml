@@ -1,0 +1,40 @@
+assets:
+  - name: internal_sales_to_s3
+    group: schema_test
+    partitions_def:
+      type: daily
+      start_date: "2023-01-01"
+    source:
+      type: SQLSERVER
+      connection: sqlserver_prod
+      configs:
+        sql: "SELECT SaleID, Amount FROM dbo.Sales WHERE SaleDate = '2023-01-01'"
+    target:
+      type: S3
+      connection: s3_prod
+      configs:
+        bucket_name: "my-dagster-poc"
+        key: "raw/schema_test/{{ partition_key }}/sales_strict_fail.csv"
+        object_type: CSV
+
+  - name: sales_auto_to_snowflake
+    group: schema_test
+    deps: ["internal_sales_to_s3"]
+    partitions_def:
+      type: daily
+      start_date: "2023-01-01"
+    source:
+      type: S3
+      connection: s3_prod
+      configs:
+        bucket_name: "my-dagster-poc"
+        key: "raw/schema_test/{{ partition_key }}/sales_strict_fail.csv"
+        object_type: CSV
+    target:
+      type: SNOWFLAKE
+      connection: snowflake_prod
+      configs:
+        table_name: "SNOWFLAKE_LEARNING_DB.PUBLIC.SALES_AUTO"
+        stage: "SNOWFLAKE_LEARNING_DB.PUBLIC.S3_SALES_STAGE"
+        schema_strategy: strict
+        match_columns: true

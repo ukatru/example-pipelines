@@ -1,0 +1,31 @@
+assets:
+  - name: sql_to_s3_landing
+    source:
+      type: SQLSERVER
+      connection: sqlserver_prod
+      configs:
+        sql: "SELECT * FROM DG_PLAY.dbo.SALES_EXTRACT"
+    target:
+      type: S3
+      connection: s3_prod
+      configs:
+        bucket_name: "my-dagster-poc"
+        prefix: "landing/sales/"
+
+  - name: s3_to_sftp_outbound
+    deps: [sql_to_s3_landing]
+    source:
+      type: S3
+      connection: s3_prod
+      configs:
+        bucket_name: "my-dagster-poc"
+        prefix: "landing/sales/"
+    target:
+      type: SFTP
+      connection: sftp_prod
+      configs:
+        path: /inbound/sales_feed/
+
+jobs:
+  - name: sql_s3_sftp_chain_job
+    selection: [sql_to_s3_landing, s3_to_sftp_outbound]

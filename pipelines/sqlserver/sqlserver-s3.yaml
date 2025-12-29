@@ -1,0 +1,22 @@
+assets:
+  - name: regional_sales_export
+    group: customers
+    description: "Export daily sales from SQL Server to S3"
+    source:
+      type: SQLSERVER
+      connection: "{{ params.source_conn_nm }}"
+      configs:
+        sql: |
+          SELECT TOP (1000) [id]
+          ,[name]
+          ,[email]
+          ,[age]
+          FROM [DG_PLAY].[dbo].[test_customers]
+    target:
+      type: S3
+      connection: "{{ params.target_conn_nm }}"
+      configs:
+        bucket_name: "{{ params.target_bucket }}"
+        prefix: "raw/customers"
+        key: "test_customers.csv"
+        object_type: CSV

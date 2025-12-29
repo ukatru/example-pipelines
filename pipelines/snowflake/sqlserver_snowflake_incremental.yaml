@@ -1,0 +1,37 @@
+assets:
+  - name: sqlserver_to_snowflake_incremental
+    description: "Daily incremental transfer using creation_date with a half-open interval [start, end)."
+    partitions_def:
+      type: daily
+      start_date: "2023-12-01"
+      hour_offset: 2
+      minute_offset: 30
+    source:
+      type: SQLSERVER
+      connection: "{{ params.source_conn_nm }}"
+      configs:
+        sql: >
+          SELECT * 
+          FROM STG_PERF_TEST_100K 
+          WHERE CREATED_AT >= '{{ partition_start }}' 
+            AND CREATED_AT < '{{ partition_end }}'
+        rows_chunk: 10000
+    target:
+      type: SNOWFLAKE
+      connection: "{{ params.target_conn_nm }}"
+      configs:
+        table_name: "STG_PERF_TEST_INCREMENTAL"
+        sql_pre:
+          # Ensure target table exists (Auto-create schema if needed)
+          - "CREATE TABLE IF NOT EXISTS STG_PERF_TEST_INCREMENTAL (ID INT, PRODUCT VARCHAR(100), AMOUNT FLOAT, CREATED_AT TIMESTAMP, REGION VARCHAR(50))"
+          # Idempotency: Remove data for this partition before reloading
+          - "DELETE FROM STG_PERF_TEST_INCREMENTAL WHERE CREATED_AT >= '{{ partition_start }}' AND CREATED_AT < '{{ partition_end }}'"
+
+jobs:
+  - name: sqlserver_snowflake_incremental_job
+    selection: 
+      - sqlserver_to_snowflake_incremental
+
+schedules:
+  - name: daily_sqlserver_to_snowflake_incremental_schedule
+    job: sqlserver_snowflake_incremental_job

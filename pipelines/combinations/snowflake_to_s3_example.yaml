@@ -1,0 +1,16 @@
+assets:
+  - name: example_snowflake_to_s3
+    group: example
+    description: "Snowflake to S3 transfer example"
+    source:
+      type: SNOWFLAKE
+      connection: snowflake_prod
+      configs:
+        sql: "SELECT * FROM ANALYTICS.BASE.ORDERS LIMIT 1000"
+    target:
+      type: S3
+      connection: s3_prod
+      configs:
+        bucket_name: "my-dagster-poc"
+        prefix: "landing/snowflake_exports/"
+        mode: COPY

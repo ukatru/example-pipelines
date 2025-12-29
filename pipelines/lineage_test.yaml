@@ -1,0 +1,50 @@
+assets:
+  - name: upstream_a
+    description: "Upstream A"
+    source:
+      type: SFTP
+      connection: sftp_prod
+      configs:
+        path: "/raw/a"
+    target:
+      type: S3
+      connection: s3_prod
+      configs:
+        bucket_name: "nexus-bucket"
+        key: "raw/a"
+
+  - name: upstream_b
+    description: "Upstream B"
+    source:
+      type: SFTP
+      connection: sftp_prod
+      configs:
+        path: "/raw/b"
+    target:
+      type: S3
+      connection: s3_prod
+      configs:
+        bucket_name: "nexus-bucket"
+        key: "raw/b"
+
+  - name: downstream_merged
+    description: "Downstream Merged"
+    ins:
+      upstream_a: {}
+      upstream_b: {}
+    source:
+      type: S3
+      connection: s3_prod
+      configs:
+        bucket_name: "nexus-bucket"
+        key: "raw/merged"
+    target:
+      type: S3
+      connection: s3_prod
+      configs:
+        bucket_name: "nexus-bucket"
+        key: "processed/merged"
+
+jobs:
+  - name: lineage_verification_job
+    selection: ["upstream_a", "upstream_b", "downstream_merged"]

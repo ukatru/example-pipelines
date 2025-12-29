@@ -1,0 +1,39 @@
+assets:
+  - name: regional_sales_to_s3
+    group: multi_partitioned
+    description: "Export sales by date and region"
+    
+    # Auto-materialize policy for intelligent orchestration
+    auto_materialize_policy:
+      type: eager
+    
+    partitions_def:
+      type: multi
+      dimensions:
+        date:
+          type: daily
+          start_date: "2023-01-01"
+        region:
+          type: static
+          values: ["US", "EU", "APAC"]
+
+    source:
+      type: SQLSERVER
+      connection: "{{ params.market_db_connect }}"
+      configs:
+        # Using {{ partition_key.dimension }} syntax
+        sql: "SELECT * FROM dbo.Sales WHERE SaleDate = '{{ partition_key.date }}' AND Region = '{{ partition_key.region }}'"
+      
+    target:
+      type: S3
+      connection: "{{ params.target_conn_nm }}"
+      configs:
+        bucket_name: "{{ params.target_bucket }}"
+        # Dynamic path with dimensions
+        key: "raw/regional_sales/region={{ partition_key.region }}/date={{ partition_key.date }}/sales.csv"
+        object_type: CSV
+      
+
+jobs:
+  - name: multi_partition_job
+    selection: ["regional_sales_to_s3"]

@@ -1,0 +1,94 @@
+assets:
+  # Ingestion Layer
+  - name: ingestion_sftp_inventory
+    group: big_showcase
+    description: "Ingest inventory CSVs from SFTP to S3 raw zone"
+    source:
+      type: SFTP
+      connection: sftp_prod
+      configs:
+        path: "/upload"
+        pattern: ".*\\.csv"
+    target:
+      type: S3
+      connection: s3_prod
+      configs:
+        bucket_name: "my-dagster-poc"
+        prefix: "raw/inventory"
+
+  - name: ingestion_sql_customers
+    group: big_showcase
+    description: "Export customer metadata from SQL Server to S3 raw zone"
+    source:
+      type: SQLSERVER
+      connection: sqlserver_conn
+      configs:
+        sql: "SELECT TOP 100 * FROM DG_PLAY.dbo.test_customers"
+    target:
+      type: S3
+      connection: s3_prod
+      configs:
+        bucket_name: "my-dagster-poc"
+        prefix: "raw/customers"
+        key: "customers_export.csv"
+        object_type: CSV
+
+  # Loading Layer (Fan-in / Fan-out orchestration)
+  - name: warehouse_load_inventory
+    group: big_showcase
+    description: "Load combined inventory data into Snowflake"
+    # Use 'ins' for holistic handoff instead of pure 'deps'
+    ins:
+      inventory_source: { key: ingestion_sftp_inventory }
+      # Customer stream is still a dep (we wait for it), but we don't use its data here
+      customers_stream: { key: ingestion_sql_customers }
+    source:
+      type: S3
+      connection: s3_prod
+      configs:
+        # Dynamically use the prefix/bucket from the upstream ingestion!
+        bucket_name: "{{ inventory_source.result.bucket_name }}"
+        prefix: "{{ inventory_source.result.prefix }}"
+        # We can still filter for a specific file if the prefix contains many
+        pattern: "inventory_.*\\.csv"
+        object_type: CSV
+    target:
+      type: SNOWFLAKE
+      connection: snowflake_conn
+      configs:
+        table_name: "STG_INVENTORY"
+        sql_pre:
+          - "CREATE TABLE IF NOT EXISTS STG_INVENTORY (ID INT, PRODUCT VARCHAR(100), QUANTITY INT)"
+          - "DELETE FROM STG_INVENTORY"
+
+  - name: warehouse_load_customers
+    group: big_showcase
+    description: "Direct transfer of verified customers to Snowflake"
+    # Even if we don't use the data, 'ins' defines the graph and the wait
+    ins:
+      inventory_stream: { key: ingestion_sftp_inventory }
+      customers_source: { key: ingestion_sql_customers }
+    source:
+      type: SQLSERVER
+      connection: sqlserver_conn
+      configs:
+        # We can use metadata even from a SQL source (e.g., row_count audit)
+        sql: "SELECT * FROM DG_PLAY.dbo.test_customers WHERE id < 50"
+    target:
+      type: SNOWFLAKE
+      connection: snowflake_conn
+      configs:
+        table_name: "STG_CUSTOMERS_DIRECT"
+        sql_pre:
+          - "CREATE TABLE IF NOT EXISTS STG_CUSTOMERS_DIRECT (id INT, name VARCHAR(100), email VARCHAR(100), age INT)"
+          - "DELETE FROM STG_CUSTOMERS_DIRECT"
+
+jobs:
+  - name: master_showcase_job
+    description: "Master DAG demonstrating complex SFTP/SQL/S3/Snowflake orchestration."
+    selection: ["group:big_showcase"]
+
+schedules:
+  - name: daily_master_showcase
+    job: master_showcase_job
+    cron: "0 6 * * *"

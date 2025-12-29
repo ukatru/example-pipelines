@@ -1,0 +1,30 @@
+assets:
+  - name: example_sqlserver_to_s3
+    group: example
+    description: "Incremental SQL Server to S3 transfer example"
+    source:
+      type: SQLSERVER
+      connection: sqlserver_prod
+      configs:
+        sql: "SELECT * FROM DG_PLAY.dbo.ORDER_HEADER WHERE ORDER_DATE > '2020-01-01'"
+        rows_chunk: 50000
+    target:
+      type: S3
+      connection: s3_prod
+      configs:
+        bucket_name: "my-dagster-poc"
+        prefix: "landing/sql_orders/"
+        mode: COPY
+
+sensors:
+  - name: example_sql_sensor
+    type: SQLSERVER
+    connection: sqlserver_prod
+    job: example_sqlserver_to_s3_job
+    configs:
+      sql: "SELECT * FROM DG_PLAY.dbo.ORDER_HEADER"
+      cursor_column: ORDER_DATE
+
+jobs:
+  - name: example_sqlserver_to_s3_job
+    selection: [example_sqlserver_to_s3]

@@ -1,0 +1,23 @@
+assets:
+  - name: s3_object_observation
+    source:
+      type: S3
+      connection: s3_prod
+      configs:
+        bucket_name: "my-dagster-poc"
+        prefix: "raw/incoming/"
+        pattern: ".*\\.json"
+
+sensors:
+  - name: s3_incoming_sensor
+    type: S3
+    connection: s3_prod
+    job: s3_observation_job
+    configs:
+      bucket_name: "my-dagster-poc"
+      prefix: "raw/incoming/"
+      pattern: ".*\\.json"
+
+jobs:
+  - name: s3_observation_job
+    selection: [s3_object_observation]
