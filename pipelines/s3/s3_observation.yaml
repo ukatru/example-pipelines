@@ -20,4 +20,5 @@ sensors:
 
 jobs:
   - name: s3_observation_job
+    description: "S3 object observation job."
     selection: [s3_object_observation]

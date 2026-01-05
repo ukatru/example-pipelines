@@ -36,4 +36,5 @@ assets:
 
 jobs:
   - name: multi_partition_job
+    description: "Orchestrates complex multi-dimensional partitioned datasets (Daily + Static Regions)."
     selection: ["regional_sales_to_s3"]

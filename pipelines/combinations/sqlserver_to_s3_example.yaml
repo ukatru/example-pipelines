@@ -27,4 +27,5 @@ sensors:
 
 jobs:
   - name: example_sqlserver_to_s3_job
+    description: "Job for example SQL Server to S3 transfer."
     selection: [example_sqlserver_to_s3]
