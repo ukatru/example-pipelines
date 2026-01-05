@@ -1,0 +1,4 @@
+team: Marketplace
+org: EDS
+code_location: example-pipelines
+description: "Core marketplace data processing pipelines."

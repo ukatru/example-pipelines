@@ -21,4 +21,5 @@ sensors:
 
 jobs:
   - name: sftp_multi_pattern_job
+    description: "Extracts multiple file patterns from SFTP based on metadata selection."
     selection: [sftp_multi_pattern_extraction]

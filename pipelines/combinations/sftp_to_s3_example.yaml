@@ -30,4 +30,5 @@ sensors:
 
 jobs:
   - name: example_sftp_to_s3_job
+    description: "Job for example SFTP to S3 transfer."
     selection: [example_sftp_to_s3]

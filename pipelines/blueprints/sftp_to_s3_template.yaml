@@ -1,0 +1,45 @@
+# Template Blueprint: SFTP to S3 Transfer Pattern
+# This is NOT directly executable - users create instances from it via the UI
+blueprint: true
+
+assets:
+  - name: sftp_ingest
+    description: "Ingest files from SFTP to S3"
+    group: data_ingestion
+    partitions_def: &daily_partition
+      type: daily
+      start_date: "2025-01-01"
+      hour_offset: 2
+      minute_offset: 0
+    source:
+      type: SFTP
+      connection: "{{ params.source_connection }}"
+      configs:
+        path: "{{ params.sftp_path }}"
+        pattern: "{{ params.file_pattern }}"
+        check_is_modifying: true
+    target:
+      type: S3
+      connection: "{{ params.target_connection }}"
+      configs:
+        bucket_name: "{{ params.s3_bucket }}"
+        key: "{{ params.s3_prefix }}/{{ source.item.file_name }}"
+    checks:
+      - name: file_count_check
+        type: observation_diff
+        source_key: "files_scanned"
+        target_key: "files_uploaded"
+        threshold: 0
+
+jobs:
+  - name: sftp_to_s3_pattern
+    description: "Reusable SFTP to S3 transfer pattern"
+    selection: ["sftp_ingest"]
+    params_schema:
+      source_connection: "string!|sftp_prod"
+      target_connection: "string!|s3_prod"
+      sftp_path: "string!|/outgoing/data"
+      file_pattern: "string!|.*\\.csv"
+      s3_bucket: "string!|my-dagster-poc"
+      s3_prefix: "string!|landing/sftp"
+    is_strict: true

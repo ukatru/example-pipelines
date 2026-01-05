@@ -47,4 +47,5 @@ assets:
 
 jobs:
   - name: lineage_verification_job
+    description: "Job to verify data lineage across multiple stages (SFTP -> S3 -> S3)."
     selection: ["upstream_a", "upstream_b", "downstream_merged"]

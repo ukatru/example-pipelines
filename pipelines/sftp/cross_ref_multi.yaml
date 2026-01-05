@@ -35,4 +35,5 @@ assets:
 
 jobs:
   - name: cross_ref_multi_asset_job
+    description: "Multi-step SFTP to S3 to S3 ingest."
     selection: ["ingest_sftp_to_s3", "process_s3_to_s3"]

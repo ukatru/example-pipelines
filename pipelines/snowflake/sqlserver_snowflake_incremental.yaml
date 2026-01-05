@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../schemas/nexus-schema.json
 assets:
   - name: sqlserver_to_snowflake_incremental
     description: "Daily incremental transfer using creation_date with a half-open interval [start, end)."
@@ -29,9 +30,11 @@ assets:
 
 jobs:
   - name: sqlserver_snowflake_incremental_job
+    description: "Incremental SQL Server to Snowflake transfer."
     selection: 
       - sqlserver_to_snowflake_incremental
 
 schedules:
   - name: daily_sqlserver_to_snowflake_incremental_schedule
     job: sqlserver_snowflake_incremental_job
+    cron: "30 2 * * *"  # Daily at 2:30 AM

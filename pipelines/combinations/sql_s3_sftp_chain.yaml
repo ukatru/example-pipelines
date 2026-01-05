@@ -28,4 +28,5 @@ assets:
 
 jobs:
   - name: sql_s3_sftp_chain_job
+    description: "Chain transfer from SQL Server to S3 then SFTP."
     selection: [sql_to_s3_landing, s3_to_sftp_outbound]

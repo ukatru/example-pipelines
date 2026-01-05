@@ -1,4 +1,14 @@
 assets:
+  - name: iam_doint_crazy
+    group: big_showcase
+    description: "I am doing crazy things"
+    source:
+      type: Crazy
+      connection: sftp_prod
+      configs:
+        path: "/upload"
+        pattern: ".*\\.csv"
+
   # Ingestion Layer
   - name: ingestion_sftp_inventory
     group: big_showcase
@@ -15,6 +25,9 @@ assets:
       configs:
         bucket_name: "my-dagster-poc"
         prefix: "raw/inventory"
+    ins:
+      inventory_source: { key: iam_doint_crazy }
+      # Customer stream is still a dep (we wait for it), but we don't use its data here
 
   - name: ingestion_sql_customers
     group: big_showcase

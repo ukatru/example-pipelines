@@ -1,10 +1,11 @@
+# yaml-language-server: $schema=../../schemas/nexus-schema.json
 assets:
   - name: cross_ref_test_asset
     description: "Cross-reference test asset"
     group: testing
     partitions_def: &daily_sales_partition
       type: daily
-      start_date: "2025-01-01"
+      start_date: "2000-01-01"
       hour_offset: 19
       minute_offset: 30
     source:
@@ -32,7 +33,7 @@ assets:
     group: testing
     partitions_def: *daily_sales_partition
     ins:
-      upstream: 
+      upstream:
         key: cross_ref_test_asset
     source:
       type: S3
@@ -40,6 +41,7 @@ assets:
       configs:
         bucket_name: "{{ upstream.result.bucket_name }}"
         prefix: "{{ upstream.result.prefix }}"
+
     target:
       type: S3
       connection: s3_prod
@@ -54,9 +56,18 @@ assets:
         threshold: 0
 jobs:
   - name: cross_ref_test_job
+    description: "Multi-asset transfer with cross-reference validation and parameters."
     selection: ["cross_ref_test_asset", "cross_ref_test_asset_2"]
+    params_schema:
+      source_path: "string!|/upload"
+      source_pattern: "string!|.*\\.csv"
+      target_bucket: "string!|my-dagster-poc"
+      source_columns: "list!|[]"
+      target_columns: "list!|[]"
+    is_strict: true
 
 schedules:
   - name: daily_cross_ref_schedule
     job: cross_ref_test_job
+    cron: "0 5 * * *" # Daily at 5 AM
 
