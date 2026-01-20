@@ -1,0 +1,59 @@
+# SQL Server to Snowflake - Simple Test
+# Tests the enhanced operator with auto table creation and type validation
+#
+# This pipeline demonstrates:
+# 1. Auto table creation from SQL Server schema
+# 2. Type validation before data transfer
+# 3. Basic data transfer from SQL Server to Snowflake
+#
+# Prerequisites:
+# - SQL Server connection configured (update connection name below)
+# - Snowflake connection configured (update connection name below)
+# - Source table exists in SQL Server
+# - Target table will be auto-created if it doesn't exist
+
+assets:
+  - name: sqlserver_to_snowflake_simple
+    description: "Simple SQL Server to Snowflake transfer with auto table creation"
+    group: sqlserver_snowflake
+    source:
+      type: SQLSERVER
+      connection: SQL_SOURCE # Update to your SQL Server connection name
+      configs:
+        # Option 1: Use table_name (recommended for auto-create)
+        table_name: "customers" # Update to your source table name
+        schema_name: "dbo" # Optional: specify schema (defaults to dbo if not specified)
+        # columns: ["*"]  # Optional: specify columns to select (defaults to *)
+        rows_chunk: 10000 # Chunk size for streaming
+
+        # Option 2: Use custom SQL query (alternative to table_name)
+        # sql: "SELECT TOP 1000 * FROM dbo.AdventureWorksSales"
+        # params: {}  # Optional: query parameters
+
+    target:
+      type: SNOWFLAKE
+      connection: SNOWFLAKE # Update to your Snowflake connection name
+      configs:
+        table_name: "customers" # Target table name (will be auto-created)
+        schema_name: "DATA_ANALYTICS"
+        # schema_name: "PUBLIC"  # Optional: Snowflake schema (uses connection default if not specified)
+
+        # Auto table creation (NEW FEATURE)
+        auto_create_table: true # Automatically create table from SQL Server schema
+
+        # Type validation (NEW FEATURE)
+        type_mismatch_failure: true # Fail if types can't be safely mapped
+
+        # Optional: Pre/post SQL
+        sql_pre:
+          - "TRUNCATE TABLE DATA_ANALYTICS.customers"
+        # sql_post:
+        #   - "ANALYZE TABLE ADVENTURE_WORKS_SALES"
+        add_new_columns: true
+
+jobs:
+  - name: sqlserver_to_snowflake_simple_job
+    description: "Simple SQL Server to Snowflake test with auto table creation"
+    selection:
+      - sqlserver_to_snowflake_simple
+

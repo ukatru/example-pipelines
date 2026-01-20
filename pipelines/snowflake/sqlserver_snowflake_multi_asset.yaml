@@ -1,0 +1,80 @@
+# SQL Server to Snowflake - Multi-Asset Replication
+# Tests the new multi-asset feature for bulk table synchronization
+#
+# This pipeline demonstrates:
+# 1. Multi-asset configuration for syncing multiple tables
+# 2. Shared source/target configuration
+# 3. Per-table overrides (optional)
+# 4. All tables synced together atomically
+#
+# Prerequisites:
+# - SQL Server connection configured (update connection name below)
+# - Snowflake connection configured (update connection name below)
+# - Source tables exist in SQL Server (dbo schema)
+# - Target tables will be auto-created if they don't exist
+
+assets:
+  - name: sqlserver_snowflake_bulk_sync
+    type: multi_asset
+    description: "Bulk replication of SQL Server tables to Snowflake using multi-asset"
+    group: sqlserver_snowflake
+
+    # Multi-asset: List of tables to sync
+    tables:
+      - "dbo.STG_PERF_TEST_100K"
+      - "dbo.Sales"
+      - "dbo.customers"
+
+    # Shared source configuration (applies to all tables)
+    source:
+      type: SQLSERVER
+      connection: SQL_SOURCE # Update to your SQL Server connection name
+      configs:
+        schema_name: "dbo" # Shared schema for all tables
+        rows_chunk: 10000 # Chunk size for streaming
+
+    # Shared target configuration (applies to all tables)
+    target:
+      type: SNOWFLAKE
+      connection: SNOWFLAKE # Update to your Snowflake connection name
+      configs:
+        schema_name: "DATA_ANALYTICS" # Shared target schema
+        auto_create_table: true # Auto-create tables from SQL Server schema
+        type_mismatch_failure: true # Fail if types can't be safely mapped
+        add_new_columns: true # Add new columns if source schema changes
+        # Pre-SQL: Truncate table before loading (Jinja templating for dynamic table name)
+        sql_pre:
+          - "TRUNCATE TABLE {{target.schema_name}}.{{target.table_name}}"
+
+    # Optional: Per-table overrides
+    # Uncomment to customize specific tables
+    # stream_overrides:
+    #   "dbo.STG_PERF_TEST_100K":
+    #     target:
+    #       configs:
+    #         table_name: "stg_perf_test_100k_staging"  # Different target name
+    #   "dbo.Sales":
+    #     source:
+    #       configs:
+    #         sql: "SELECT * FROM dbo.Sales WHERE SaleDate >= '2024-01-01'"  # Custom query
+    #     target:
+    #       configs:
+    #         table_name: "sales_filtered"
+
+    # Optional: Partitioning (all tables share same partition)
+    # partitions_def:
+    #   type: daily
+    #   start_date: "2024-01-01"
+
+    # Optional: Pre-execution SQL for all tables
+    # target:
+    #   configs:
+    #     sql_pre:
+    #       - "TRUNCATE TABLE DATA_ANALYTICS.STG_PERF_TEST_100K"
+    #       - "TRUNCATE TABLE DATA_ANALYTICS.Sales"
+    #       - "TRUNCATE TABLE DATA_ANALYTICS.customers"
+jobs:
+  - name: sqlserver_snowflake_bulk_sync_job
+    description: "Bulk sync job for SQL Server to Snowflake multi-asset replication"
+    selection:
+      - sqlserver_snowflake_bulk_sync  # Will automatically expand to all child assets
