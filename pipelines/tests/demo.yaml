@@ -1,0 +1,10 @@
+assets:
+  - name: my_demo_asset
+    source:
+      type: DEMO
+      configs:
+        message: "Hello Nexus Foundry!"
+    target:
+      type: STDOUT
+      configs:
+        prefix: "[LIVE_DEMO]"

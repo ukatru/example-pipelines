@@ -1,0 +1,48 @@
+# S3 to S3 - CSV to Parquet Conversion
+# Converts CSV files to Parquet format during S3 transfer
+#
+# This pipeline demonstrates format conversion from CSV to Parquet.
+# The operator will:
+# 1. Read CSV files from source S3 location
+# 2. Convert each CSV file to Parquet format using pandas/pyarrow
+# 3. Write Parquet files to target S3 location
+#
+# Parquet Options:
+#   - compression: "snappy" (default), "gzip", "brotli", or "none"
+#   - Parquet files are columnar format, more efficient for analytics
+#
+# Example:
+#   Source: s3://my-dagster-poc/adventures/AdventureWorksSales_All.csv
+#   Target: s3://my-dagster-poc/adventures/parquet/AdventureWorksSales_All.parquet
+
+assets:
+  - name: csv_to_parquet_conversion
+    description: "Convert CSV files to Parquet format during S3 transfer"
+    group: s3_s3
+    source:
+      type: S3
+      connection: S3
+      configs:
+        bucket_name: "my-dagster-poc"
+        key: "adventures/AdventureWorksSales_All.csv"
+        object_type: CSV
+        csv_options:
+          has_headers: true
+          delimiter: ","
+    target:
+      type: S3
+      connection: S3
+      configs:
+        bucket_name: "my-dagster-poc"
+        key: "adventures/parquet/AdventureWorksSales_All.parquet"
+        object_type: PARQUET
+        parquet_options:
+          compression: SNAPPY # Options: SNAPPY (default), GZIP, BROTLI, NONE
+        # Note: Parquet conversion reads entire file into memory for schema
+        # mode, min_size, batch_size are not used for Parquet (single file output)
+
+jobs:
+  - name: csv_to_parquet_job
+    description: "Convert CSV file to Parquet format"
+    selection:
+      - csv_to_parquet_conversion

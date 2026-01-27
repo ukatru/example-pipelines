@@ -1,0 +1,60 @@
+# PostgreSQL to Snowflake - With Deletion Strategy
+# Demonstrates soft delete and hard delete strategies
+#
+# This pipeline shows:
+# 1. Soft delete: Mark rows as deleted in Snowflake that don't exist in PostgreSQL
+# 2. Hard delete: Physically delete rows from Snowflake that don't exist in PostgreSQL
+# 3. Primary key auto-detection from Snowflake table metadata
+#
+# Prerequisites:
+# - PostgreSQL connection configured
+# - Snowflake connection configured
+# - Source and target tables have matching primary key columns
+# - For soft delete: target table must have a soft_delete_column (e.g., is_deleted)
+
+assets:
+  - name: postgres_to_snowflake_with_deletions
+    description: "PostgreSQL to Snowflake transfer with deletion strategy"
+    group: postgres_snowflake
+    source:
+      type: POSTGRES
+      connection: POSTGRES # Update to your PostgreSQL connection name
+      configs:
+        table_name: "products" # Update to your source table name
+        schema_name: "public" # Optional: PostgreSQL schema
+        rows_chunk: 10000
+
+    target:
+      type: SNOWFLAKE
+      connection: SNOWFLAKE # Update to your Snowflake connection name
+      configs:
+        table_name: "products" # Target table name
+        schema_name: "DATA_ANALYTICS" # Optional: Snowflake schema
+
+        # Auto table creation
+        auto_create_table: true
+
+        # Type validation
+        type_mismatch_failure: true
+
+        # Add new columns automatically
+        add_new_columns: true
+
+        # Deletion strategy configuration
+        delete_strategy: soft_delete # Options: none, soft_delete, hard_delete
+
+        # For soft delete: specify the column to mark as deleted
+        soft_delete_column: "is_deleted" # Column must exist in target table (BOOLEAN or INT)
+
+        # Primary key for matching rows (auto-detected if table has PK constraint)
+        # primary_key: ["product_id"] # Optional: will auto-detect from Snowflake table if not specified
+
+        # Optional: Pre-SQL
+        sql_pre:
+          - "TRUNCATE TABLE DATA_ANALYTICS.products"
+
+jobs:
+  - name: postgres_to_snowflake_with_deletions_job
+    description: "PostgreSQL to Snowflake transfer with deletion strategy"
+    selection:
+      - postgres_to_snowflake_with_deletions

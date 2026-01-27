@@ -1,0 +1,89 @@
+# SQL Server to Snowflake - Multi-Asset Advanced Example
+# Demonstrates advanced features: partitioning, Jinja templating, and per-table overrides
+#
+# This pipeline shows:
+# 1. Multi-asset with daily partitioning
+# 2. Jinja templating in table names and queries
+# 3. Per-table configuration overrides
+# 4. Custom SQL queries for specific tables
+#
+# Prerequisites:
+# - SQL Server connection configured
+# - Snowflake connection configured
+# - Source tables exist in SQL Server (dbo schema)
+
+assets:
+  - name: sqlserver_snowflake_daily_sync
+    type: multi_asset
+    description: "Daily partitioned bulk replication with advanced features"
+    group: sqlserver_snowflake
+    
+    # Multi-asset: List of tables to sync
+    tables:
+      - "dbo.STG_PERF_TEST_100K"
+      - "dbo.Sales"
+      - "dbo.customers"
+    
+    # Daily partitioning (all tables share same partition)
+    partitions_def:
+      type: daily
+      start_date: "2024-01-01"
+    
+    # Shared source configuration
+    source:
+      type: SQLSERVER
+      connection: SQL_SOURCE
+      configs:
+        schema_name: "dbo"
+        rows_chunk: 10000
+        # Use partition in query (optional)
+        # sql: "SELECT * FROM {{ stream.table_name }} WHERE DateColumn = '{{ partition.date }}'"
+    
+    # Shared target configuration
+    target:
+      type: SNOWFLAKE
+      connection: SNOWFLAKE
+      configs:
+        schema_name: "DATA_ANALYTICS"
+        auto_create_table: true
+        type_mismatch_failure: true
+        add_new_columns: true
+        # Use partition in target table name (optional)
+        # table_name: "{{ stream.table_name }}_{{ partition.date }}"
+    
+    # Per-table overrides with advanced features
+    stream_overrides:
+      "dbo.STG_PERF_TEST_100K":
+        description: "Performance test table with custom configuration"
+        target:
+          configs:
+            table_name: "stg_perf_test_100k"  # Explicit target name
+            sql_pre:
+              - "TRUNCATE TABLE DATA_ANALYTICS.stg_perf_test_100k"
+      
+      "dbo.Sales":
+        description: "Sales table with date filtering"
+        source:
+          configs:
+            # Custom SQL query with partition date
+            sql: "SELECT * FROM dbo.Sales WHERE SaleDate >= '{{ partition.date }}' AND SaleDate < DATEADD(day, 1, '{{ partition.date }}')"
+        target:
+          configs:
+            table_name: "sales"
+            sql_pre:
+              - "DELETE FROM DATA_ANALYTICS.sales WHERE SaleDate >= '{{ partition.date }}' AND SaleDate < DATEADD(day, 1, '{{ partition.date }}')"
+      
+      "dbo.customers":
+        description: "Customers table - full sync"
+        target:
+          configs:
+            table_name: "customers"
+            # Only truncate on first partition (optional logic)
+            # sql_pre:
+            #   - "{% if partition.date == '2024-01-01' %}TRUNCATE TABLE DATA_ANALYTICS.customers{% endif %}"
+
+jobs:
+  - name: sqlserver_snowflake_daily_sync_job
+    description: "Daily partitioned bulk sync job"
+    selection:
+      - key:sqlserver_snowflake_daily_sync/*

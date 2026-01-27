@@ -15,21 +15,21 @@ resources:
       user: "sa"
       password: "{{env.SQL_PASSWORD}}"
 
-  #s3_prod:
-  #  type: S3Resource
-  #  config:
-  #    region_name: "us-east-1"
-  #    endpoint_url: null
-  #    access_key: "{{env.AWS_ACCESS_KEY_ID}}"
-  #    secret_key: "{{env.AWS_SECRET_ACCESS_KEY}}"
+  s3_prod:
+    type: S3Resource
+    config:
+      region_name: "us-east-1"
+      endpoint_url: null
+      access_key: "{{env.AWS_ACCESS_KEY_ID}}"
+      secret_key: "{{env.AWS_SECRET_ACCESS_KEY}}"
 
-  #sftp_prod:
-  #  type: SFTPResource
-  #  config:
-  #    host: "{{env.SFTP_HOST}}"
-  #    port: 22
-  #    username: "{{env.SFTP_USERNAME}}"
-  #    password: "{{env.SFTP_PASSWORD}}"
+  sftp_prod:
+    type: SFTPResource
+    config:
+      host: "{{env.SFTP_HOST}}"
+      port: 22
+      username: "{{env.SFTP_USERNAME}}"
+      password: "{{env.SFTP_PASSWORD}}"
 
   snowflake_prod:
     type: SnowflakeResource

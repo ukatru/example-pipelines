@@ -1,0 +1,74 @@
+# PostgreSQL to Snowflake - Custom SQL Query
+# Demonstrates using custom SQL query instead of table_name
+#
+# This pipeline shows:
+# 1. Custom SQL query with filtering and transformations
+# 2. Using SQL parameters for dynamic queries
+# 3. Complex joins and aggregations
+#
+# Prerequisites:
+# - PostgreSQL connection configured
+# - Snowflake connection configured
+# - Target table exists (or will be auto-created)
+
+assets:
+  - name: postgres_to_snowflake_with_sql
+    description: "PostgreSQL to Snowflake transfer with custom SQL query"
+    group: postgres_snowflake
+    source:
+      type: POSTGRES
+      connection: POSTGRES # Update to your PostgreSQL connection name
+      configs:
+        # Use custom SQL query (when SQL is provided, table_name and sync_mode are hidden)
+        sql: >
+          SELECT 
+            o.order_id,
+            o.customer_id,
+            o.order_date,
+            o.total_amount,
+            c.customer_name,
+            c.email,
+            o.status,
+            o.created_at,
+            o.updated_at
+          FROM public.orders o
+          INNER JOIN public.customers c ON o.customer_id = c.customer_id
+          WHERE o.order_date >= CURRENT_DATE - INTERVAL '30 days'
+            AND o.status = 'completed'
+          ORDER BY o.order_date DESC
+        # params: {}  # Optional: query parameters for parameterized queries
+        rows_chunk: 10000
+
+        # Optional: Pre-SQL (e.g., create temp tables, set session variables)
+        # sql_pre:
+        #   - "SET timezone = 'UTC'"
+
+    target:
+      type: SNOWFLAKE
+      connection: SNOWFLAKE # Update to your Snowflake connection name
+      configs:
+        table_name: "order_summary" # Target table name
+        schema_name: "DATA_ANALYTICS" # Optional: Snowflake schema
+
+        # Auto table creation (will infer schema from query result)
+        auto_create_table: true
+
+        # Type validation
+        type_mismatch_failure: true
+
+        # Add new columns automatically
+        add_new_columns: true
+
+        # Optional: Pre-SQL (e.g., truncate, create indexes)
+        sql_pre:
+          - "TRUNCATE TABLE DATA_ANALYTICS.order_summary"
+
+        # Optional: Post-SQL (e.g., analyze, data quality checks)
+        sql_post:
+          - "ANALYZE TABLE DATA_ANALYTICS.order_summary"
+
+jobs:
+  - name: postgres_to_snowflake_with_sql_job
+    description: "PostgreSQL to Snowflake transfer with custom SQL"
+    selection:
+      - postgres_to_snowflake_with_sql

@@ -5,7 +5,7 @@ assets:
     group: testing
     partitions_def: &daily_sales_partition
       type: daily
-      start_date: "2000-01-01"
+      start_date: "2025-12-01"
       hour_offset: 19
       minute_offset: 30
     source:
@@ -64,6 +64,8 @@ jobs:
       target_bucket: "string!|my-dagster-poc"
       source_columns: "list!|[]"
       target_columns: "list!|[]"
+      uma_new_parameter: "string!"
+      uma_new_parameter_2: "string!"
     is_strict: true
 
 schedules:

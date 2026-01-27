@@ -1,0 +1,58 @@
+# PostgreSQL to Snowflake - Simple Test
+# Tests the PostgresSnowflakeOperator with auto table creation and type validation
+#
+# This pipeline demonstrates:
+# 1. Auto table creation from PostgreSQL schema
+# 2. Type validation before data transfer
+# 3. Basic data transfer from PostgreSQL to Snowflake
+#
+# Prerequisites:
+# - PostgreSQL connection configured (update connection name below)
+# - Snowflake connection configured (update connection name below)
+# - Source table exists in PostgreSQL
+# - Target table will be auto-created if it doesn't exist
+
+assets:
+  - name: postgres_to_snowflake_simple
+    description: "Simple PostgreSQL to Snowflake transfer with auto table creation"
+    group: postgres_snowflake
+    source:
+      type: POSTGRES
+      connection: POSTGRES # Update to your PostgreSQL connection name
+      configs:
+        # Option 1: Use table_name (recommended for auto-create)
+        table_name: "etl_job_definition" # Update to your source table name
+        schema_name: "public" # Optional: specify schema (defaults to public if not specified)
+        rows_chunk: 10000 # Chunk size for streaming
+
+        # Option 2: Use custom SQL query (alternative to table_name)
+        # sql: "SELECT * FROM public.customers WHERE created_at >= CURRENT_DATE - INTERVAL '7 days'"
+        # params: {}  # Optional: query parameters
+
+    target:
+      type: SNOWFLAKE
+      connection: SNOWFLAKE # Update to your Snowflake connection name
+      configs:
+        table_name: "etl_job_definition" # Target table name (will be auto-created)
+        schema_name: "DATA_ANALYTICS" # Optional: Snowflake schema (uses connection default if not specified)
+
+        # Auto table creation (NEW FEATURE)
+        auto_create_table: true # Automatically create table from PostgreSQL schema
+
+        # Type validation (NEW FEATURE)
+        type_mismatch_failure: true # Fail if types can't be safely mapped
+
+        # Add new columns automatically
+        add_new_columns: true
+
+        # Optional: Pre/post SQL
+        #sql_pre:
+        #  - "TRUNCATE TABLE DATA_ANALYTICS.customers"
+        # sql_post:
+        #   - "ANALYZE TABLE DATA_ANALYTICS.customers"
+
+jobs:
+  - name: postgres_to_snowflake_simple_job
+    description: "Simple PostgreSQL to Snowflake test with auto table creation"
+    selection:
+      - postgres_to_snowflake_simple

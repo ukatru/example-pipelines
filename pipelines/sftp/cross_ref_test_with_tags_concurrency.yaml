@@ -1,0 +1,110 @@
+# yaml-language-server: $schema=../../schemas/nexus-schema.json
+assets:
+  - name: cross_ref_test_asset_tags_concurrency
+    description: "Cross-reference test asset"
+    group: testing
+    # Phase 2: Asset-level tags (NEW - Native Dagster feature)
+    # Tags are attached to the asset definition and visible in UI/APIs
+    tags:
+      domain: "data-engineering"
+      pii: "false"
+      data-classification: "public"
+    # Phase 2: Asset-level concurrency (NEW - Native Dagster feature)
+    # Uses Dagster's native `pool` API (Dagster 1.10+)
+    # Limits concurrent execution of assets sharing the same pool
+    concurrency_key: "s3_connection_pool"
+    partitions_def: &daily_sales_partition
+      type: daily
+      start_date: "2025-12-01"
+      hour_offset: 19
+      minute_offset: 30
+    source:
+      type: SFTP
+      connection: sftp_prod
+      configs:
+        path: "{{ params.source_path }}"
+        # Match multiple files
+        pattern: "{{ params.source_pattern }}"
+    target:
+      type: S3
+      connection: s3_prod
+      configs:
+        bucket_name: "{{ params.target_bucket }}"
+        # Mix of cross-config (source.path) and runtime (item.file_name)
+        key: "backups{{ source.path }}/{{ source.item.file_name }}"
+    checks:
+      - name: audit_file_count_tags_concurrency
+        type: observation_diff
+        source_key: "files_scanned"
+        target_key: "files_uploaded"
+        threshold: 0
+
+  - name: cross_ref_test_asset_2_tags_concurrency
+    description: "Cross-reference test asset 2"
+    group: testing
+    # Phase 2: Asset-level tags (NEW - Native Dagster feature)
+    tags:
+      domain: "data-engineering"
+      pii: "false"
+      data-classification: "internal"
+    # Phase 2: Asset-level concurrency (NEW - Native Dagster feature)
+    # Shares the same pool as asset 1 - limits concurrent execution
+    concurrency_key: "s3_connection_pool"
+    partitions_def: *daily_sales_partition
+    ins:
+      upstream:
+        key: cross_ref_test_asset_tags_concurrency
+    source:
+      type: S3
+      connection: s3_prod
+      configs:
+        bucket_name: "{{ upstream.result.bucket_name }}"
+        prefix: "{{ upstream.result.prefix }}"
+
+    target:
+      type: S3
+      connection: s3_prod
+      configs:
+        bucket_name: "my-dagster-poc"
+        key: "backups/{{ source.item.object_name }}"
+    checks:
+      - name: audit_file_count_tags_concurrency
+        type: observation_diff
+        source_key: "files_scanned"
+        target_key: "files_uploaded"
+        threshold: 0
+
+jobs:
+  - name: cross_ref_test_job_tags_concurrency
+    description: "Multi-asset transfer with cross-reference validation and parameters."
+    selection: ["cross_ref_test_asset_tags_concurrency", "cross_ref_test_asset_2_tags_concurrency"]
+    
+    # Phase 2: Job-level tags (NEW - Native Dagster feature)
+    # Tags are attached to the job definition and visible in UI/APIs
+    tags:
+      environment: "production"
+      team: "data-engineering"
+      priority: "high"
+      cost-center: "engineering"
+    
+    # Phase 2: Job-level concurrency (NEW - Native Dagster feature)
+    # Controls how many concurrent runs of this job can execute
+    # Uses Dagster's run_config execution config
+    concurrency:
+      limit: 3  # Maximum 3 concurrent runs of this job globally
+      # Optional: Use tag-based concurrency instead (for cross-job limits)
+      # tag: "s3_connection_pool"  # Uncomment to use tag-based limits
+    
+    params_schema:
+      source_path: "string!|/upload"
+      source_pattern: "string!|.*\\.csv"
+      target_bucket: "string!|my-dagster-poc"
+      source_columns: "list!|[]"
+      target_columns: "list!|[]"
+      uma_new_parameter: "string!"
+    is_strict: true
+
+schedules:
+  - name: daily_cross_ref_schedule_tags_concurrency
+    job: cross_ref_test_job_tags_concurrency
+    cron: "0 5 * * *" # Daily at 5 AM

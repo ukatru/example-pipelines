@@ -45,8 +45,9 @@ assets:
         type_mismatch_failure: true # Fail if types can't be safely mapped
 
         # Optional: Pre/post SQL
-        sql_pre:
-          - "TRUNCATE TABLE DATA_ANALYTICS.customers"
+
+        #sql_pre:
+        #  - "TRUNCATE TABLE DATA_ANALYTICS.customers"
         # sql_post:
         #   - "ANALYZE TABLE ADVENTURE_WORKS_SALES"
         add_new_columns: true
@@ -56,4 +57,3 @@ jobs:
     description: "Simple SQL Server to Snowflake test with auto table creation"
     selection:
       - sqlserver_to_snowflake_simple
-

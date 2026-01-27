@@ -1,0 +1,13 @@
+assets:
+  - name: demo_registration_asset
+    description: "Testing live operator registration"
+    source:
+      type: DEMO
+      configs:
+        message: "Hello Nexus Foundry!"
+        api_token: "sk_live_51Mz..."
+        secret_key: "my-hidden-secret"
+    target:
+      type: STDOUT
+      configs:
+        prefix: "[LIVE_DEMO]"

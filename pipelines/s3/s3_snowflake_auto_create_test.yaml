@@ -1,0 +1,100 @@
+# S3 to Snowflake - Auto Create Table Test
+# Tests auto-create table functionality with pandas-based schema inference
+#
+# Prerequisites:
+# 1. External stage: S3_NEXUS_POC (must exist in Snowflake)
+#    CREATE STAGE S3_NEXUS_POC
+#      URL = 's3://your-bucket-name/'
+#      STORAGE_INTEGRATION = your_storage_integration_name;
+#
+# 2. Storage integration established between S3 and Snowflake
+#    CREATE STORAGE INTEGRATION your_storage_integration_name
+#      TYPE = EXTERNAL_STAGE
+#      STORAGE_PROVIDER = S3
+#      STORAGE_AWS_ROLE_ARN = 'arn:aws:iam::...'
+#      ENABLED = TRUE
+#      STORAGE_ALLOWED_LOCATIONS = ('s3://your-bucket-name/');
+#
+# 3. S3 file: AdventureWorksSales_All.csv (must exist in S3)
+#
+# 4. Snowflake connection must have:
+#    - database: NEXUS_DEV (set in connection config)
+#    - schema: PUBLIC (can be set in connection or via schema_name in target configs)
+#
+# How it works:
+# - If table doesn't exist: Auto-creates table using pandas to infer schema from CSV
+# - If table exists: Validates CSV schema matches existing table (if column_mismatch_failure=true)
+# - Uses COPY INTO with external stage for efficient loading
+
+assets:
+  - name: adventureworks_sales_auto_create
+    description: "Load AdventureWorksSales_All.csv with auto-create table using pandas inference"
+    group: s3_snowflake_tests
+    source:
+      type: S3
+      connection: S3_AWS # Update this to your S3 connection name (from connections/*.yaml)
+      configs:
+        bucket_name: "my-dagster-poc" # Update with your S3 bucket name
+        key: "poc/AdventureWorksSales_All.csv" # Single file path in S3
+        object_type: CSV
+        csv_options:
+          has_headers: true # CSV has header row
+          delimiter: "," # Comma-delimited
+    target:
+      type: SNOWFLAKE
+      connection: SNOWFLAKE # Update this to your Snowflake connection name (from connections/*.yaml)
+      # Note: Connection should have database=NEXUS_DEV set
+      configs:
+        table_name: "ADVENTUREWORKS_SALES" # Table will be auto-created if it doesn't exist
+        schema_name: "PUBLIC" # Schema name (overrides connection default if set)
+        stage: "S3_NEXUS_POC" # External stage name (must exist in Snowflake)
+        auto_create_table: true # Enable auto-create with pandas-based schema inference
+        match_columns: true # Match CSV columns to table columns by name (case-insensitive)
+        force: true # Force reload even if file was already loaded (FORCE = TRUE)
+        on_error: "SKIP_FILE" # Skip problematic files, continue with others
+        column_mismatch_failure: true # Validate CSV schema matches table (if table exists)
+
+jobs:
+  - name: adventureworks_auto_create_job
+    description: "Test auto-create table for AdventureWorksSales using pandas inference"
+    selection:
+      - adventureworks_sales_auto_create
+# Alternative: With explicit table schema (overrides pandas inference)
+# Uncomment below to use explicit schema instead of pandas inference:
+#
+# assets:
+#   - name: adventureworks_sales_explicit_schema
+#     description: "Load with explicit table schema (no inference)"
+#     group: s3_snowflake_tests
+#     source:
+#       type: S3
+#       connection: S3_AWS
+#       configs:
+#         bucket_name: "your-s3-bucket-name"
+#         key: "AdventureWorksSales_All.csv"
+#         object_type: CSV
+#         csv_options:
+#           has_headers: true
+#           delimiter: ","
+#     target:
+#       type: SNOWFLAKE
+#       connection: SNOWFLAKE
+#       configs:
+#         table_name: "ADVENTUREWORKS_SALES"
+#         schema_name: "PUBLIC"
+#         stage: "S3_NEXUS_POC"
+#         auto_create_table: true
+#         table_schema:  # Explicit schema (overrides pandas inference)
+#           - column_name: "ProductKey"
+#             data_type: "INTEGER"
+#             is_nullable: false
+#           - column_name: "OrderDate"
+#             data_type: "DATE"
+#             is_nullable: true
+#           - column_name: "SalesAmount"
+#             data_type: "FLOAT"
+#             is_nullable: true
+#           # ... add all columns
+#         match_columns: true
+#         force: true
+#         on_error: "SKIP_FILE"

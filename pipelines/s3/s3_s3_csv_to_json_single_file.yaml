@@ -1,0 +1,35 @@
+# S3 to S3 - CSV to JSON Conversion (Single File)
+# Simple example converting a single CSV file to JSON
+
+assets:
+  - name: single_csv_to_json
+    description: "Convert a single CSV file to JSON"
+    group: s3_s3
+    source:
+      type: S3
+      connection: S3_AWS
+      configs:
+        bucket_name: "my-dagster-poc"
+        key: "raw/csv/sales.csv"
+        object_type: CSV
+        csv_options:
+          has_headers: true
+          delimiter: ","
+    target:
+      type: S3
+      connection: S3_AWS
+      configs:
+        bucket_name: "my-dagster-poc"
+        key: "processed/json/sales.json"
+        object_type: JSON
+        json_options:
+          orient: "records"
+          # fields: null  # Use all columns (default)
+          # Or specify specific columns:
+          # fields: ["date", "amount", "customer_id"]
+
+jobs:
+  - name: single_csv_to_json_job
+    description: "Convert single CSV file to JSON"
+    selection:
+      - single_csv_to_json

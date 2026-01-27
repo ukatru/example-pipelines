@@ -1,0 +1,51 @@
+# UI Test Graph A - Sales Data Pipeline
+# Static asset graph (no jobs) - for testing per-asset config in UI
+# yaml-language-server: $schema=../../../schemas/nexus-schema.json
+assets:
+  - name: sales_ingestion_asset
+    description: "Sales data ingestion from S3"
+    group: sales_pipeline
+    partitions_def:
+      type: daily
+      start_date: "2024-01-01"
+    source:
+      type: S3
+      connection: S3
+      configs:
+        bucket_name: "{{ params.source_bucket }}"
+        prefix: "{{ params.source_path }}"
+        pattern: "{{ params.source_pattern }}"
+    target:
+      type: S3
+      connection: S3
+      configs:
+        bucket_name: "{{ params.target_bucket }}"
+        key: "sales/raw/{{ partition_key }}/data.parquet"
+    tags:
+      domain: "sales"
+      tier: "raw"
+
+  - name: sales_transformed_asset
+    description: "Transformed sales data"
+    group: sales_pipeline
+    partitions_def:
+      type: daily
+      start_date: "2024-01-01"
+    ins:
+      upstream:
+        key: sales_ingestion_asset
+    source:
+      type: S3
+      connection: S3
+      configs:
+        bucket_name: "{{ upstream.result.bucket_name }}"
+        prefix: "{{ upstream.result.prefix }}"
+    target:
+      type: S3
+      connection: S3
+      configs:
+        bucket_name: "{{ params.target_bucket }}"
+        key: "sales/transformed/{{ partition_key }}/data.parquet"
+    tags:
+      domain: "sales"
+      tier: "transformed"

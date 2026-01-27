@@ -43,8 +43,8 @@ assets:
         type_mismatch_failure: true # Fail if types can't be safely mapped
         add_new_columns: true # Add new columns if source schema changes
         # Pre-SQL: Truncate table before loading (Jinja templating for dynamic table name)
-        sql_pre:
-          - "TRUNCATE TABLE {{target.schema_name}}.{{target.table_name}}"
+        #sql_pre:
+        #  - "TRUNCATE TABLE {{target.schema_name}}.{{target.table_name}}"
 
     # Optional: Per-table overrides
     # Uncomment to customize specific tables
@@ -77,4 +77,4 @@ jobs:
   - name: sqlserver_snowflake_bulk_sync_job
     description: "Bulk sync job for SQL Server to Snowflake multi-asset replication"
     selection:
-      - sqlserver_snowflake_bulk_sync  # Will automatically expand to all child assets
+      - sqlserver_snowflake_bulk_sync # Will automatically expand to all child assets

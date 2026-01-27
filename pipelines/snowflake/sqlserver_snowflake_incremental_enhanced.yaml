@@ -1,0 +1,50 @@
+# SQL Server to Snowflake - Incremental Sync with Enhanced Features
+# Demonstrates incremental sync, auto schema evolution, and new column detection
+#
+# Features:
+# 1. Incremental sync using update_key (date column)
+# 2. Auto-create table if it doesn't exist
+# 3. Add new columns automatically when detected
+# 4. Type validation
+#
+# Inspired by Sling's approach but using our streaming pattern for better performance
+
+assets:
+  - name: sqlserver_to_snowflake_incremental
+    description: "Incremental SQL Server to Snowflake sync with schema evolution"
+    group: sqlserver_snowflake
+    source:
+      type: SQLSERVER
+      connection: SQL_SOURCE
+      configs:
+        table_name: "customers"
+        schema_name: "dbo"
+        rows_chunk: 10000
+        
+    target:
+      type: SNOWFLAKE
+      connection: SNOWFLAKE
+      configs:
+        table_name: "customers"
+        schema_name: "DATA_ANALYTICS"
+        
+        # Schema Management
+        auto_create_table: true  # Auto-create table from SQL Server schema (first run)
+        add_new_columns: true   # Automatically add new columns when detected (schema evolution)
+        type_mismatch_failure: true  # Validate types before transfer
+        
+        # Incremental Sync (Sling-inspired)
+        sync_mode: "incremental"  # Options: "full-refresh" or "incremental"
+        update_key: "updated_date"  # Column to use for incremental sync (date/timestamp)
+        primary_key: ["customer_id"]  # Optional: Primary key for deduplication
+        
+        # Note: For incremental sync:
+        # - First run: Transfers all rows (table is empty)
+        # - Subsequent runs: Only transfers rows where update_key >= last_max_value
+        # - Last sync value is stored in result for next run
+
+jobs:
+  - name: sqlserver_to_snowflake_incremental_job
+    description: "Incremental SQL Server to Snowflake sync"
+    selection:
+      - sqlserver_to_snowflake_incremental

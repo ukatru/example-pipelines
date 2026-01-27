@@ -1,0 +1,75 @@
+# yaml-language-server: $schema=../../schemas/nexus-schema.json
+blueprint: true
+version: 8
+blueprint_name: cross_ref_asset_blueprint
+assets:
+  - name: $[ASSET_NAME_1]
+    description: "Cross-reference test asset"
+    group: testing
+    partitions_def: &daily_sales_partition
+      type: daily
+      start_date: "2000-01-01"
+      hour_offset: 19
+      minute_offset: 30
+    source:
+      type: SFTP
+      connection: $[SOURCE_CONN]
+      configs:
+        path: "{{ params.source_path }}"
+        # Match multiple files
+        pattern: "{{ params.source_pattern }}"
+    target:
+      type: S3
+      connection: $[TARGET_CONN]
+      configs:
+        bucket_name: "{{ params.target_bucket }}"
+        # Mix of cross-config (source.path) and runtime (item.file_name)
+        key: "backups{{ source.path }}/{{ source.item.file_name }}"
+
+  - name: $[ASSET_NAME_2]
+    description: "Cross-reference test asset"
+    group: testing
+    partitions_def: *daily_sales_partition
+    source:
+      type: SFTP
+      connection: $[SOURCE_CONN]
+      configs:
+        path: "{{ params.source_path }}"
+        # Match multiple files
+        pattern: "{{ params.source_pattern }}"
+    target:
+      type: S3
+      connection: $[TARGET_CONN]
+      configs:
+        bucket_name: "{{ params.target_bucket }}"
+        # Mix of cross-config (source.path) and runtime (item.file_name)
+        key: "backups{{ source.path }}/{{ source.item.file_name }}"
+    deps:
+      - $[ASSET_NAME_1]
+
+  - name: $[ASSET_NAME_3]
+    description: "Cross-reference test asset"
+    group: testing
+    partitions_def: *daily_sales_partition
+    source:
+      type: SFTP
+      connection: $[SOURCE_CONN]
+      configs:
+        path: "{{ params.source_path }}"
+        # Match multiple files
+        pattern: "{{ params.source_pattern }}"
+    target:
+      type: S3
+      connection: $[TARGET_CONN]
+      configs:
+        bucket_name: "{{ params.target_bucket }}"
+        # Mix of cross-config (source.path) and runtime (item.file_name)
+        key: "backups{{ source.path }}/{{ source.item.file_name }}"
+    deps:
+      - $[ASSET_NAME_1]
+      - $[ASSET_NAME_2]
+
+params_schema:
+  source_path: "string!|/upload"
+  source_pattern: "string!|.*\\.csv"
+  target_bucket: "string!|my-dagster-poc"

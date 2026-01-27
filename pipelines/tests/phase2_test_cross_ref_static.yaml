@@ -1,0 +1,90 @@
+# Phase 2 Test: Cross-Reference Test with Per-Asset Config Overrides
+# This demonstrates Phase 2 ops_config functionality with a real-world multi-asset scenario
+# yaml-language-server: $schema=../../../schemas/nexus-schema.json
+assets:
+  - name: phase2_cross_ref_asset_1
+    description: "Phase 2 Cross-reference test asset 1 (SFTP to S3)"
+    group: phase2_tests
+    partitions_def: &daily_partition
+      type: daily
+      start_date: "2000-01-01"
+      hour_offset: 19
+      minute_offset: 30
+    source:
+      type: SFTP
+      connection: sftp_prod
+      configs:
+        path: "{{ params.source_path }}"
+        pattern: "{{ params.source_pattern }}"
+    target:
+      type: S3
+      connection: s3_prod
+      configs:
+        bucket_name: "{{ params.target_bucket }}"
+        key: "backups{{ source.path }}/{{ source.item.file_name }}"
+    checks:
+      - name: audit_file_count
+        type: observation_diff
+        source_key: "files_scanned"
+        target_key: "files_uploaded"
+        threshold: 0
+
+  - name: phase2_cross_ref_asset_2
+    description: "Phase 2 Cross-reference test asset 2 (S3 to S3)"
+    group: phase2_tests
+    partitions_def: *daily_partition
+    ins:
+      upstream:
+        key: phase2_cross_ref_asset_1
+    source:
+      type: S3
+      connection: s3_prod
+      configs:
+        bucket_name: "{{ upstream.result.bucket_name }}"
+        prefix: "{{ upstream.result.prefix }}"
+    target:
+      type: S3
+      connection: s3_prod
+      configs:
+        bucket_name: "{{ params.target_bucket }}"
+        key: "backups/{{ source.item.object_name }}"
+    checks:
+      - name: audit_file_count
+        type: observation_diff
+        source_key: "files_scanned"
+        target_key: "files_uploaded"
+        threshold: 0
+
+jobs:
+  - name: phase2_cross_ref_static_job
+    description: "Phase 2 Test: Multi-asset job with per-asset parameter overrides"
+    selection: ["phase2_cross_ref_asset_1", "phase2_cross_ref_asset_2"]
+    params_schema:
+      source_path: "string!|/upload"
+      source_pattern: "string!|.*\\.csv"
+      target_bucket: "string!|my-dagster-poc"
+      source_columns: "list!|[]"
+      target_columns: "list!|[]"
+    # Shared defaults (applies to all assets)
+    job_overrides:
+      target_bucket: "my-dagster-poc"
+      source_pattern: ".*\\.csv"
+    # Per-asset overrides (NEW - Phase 2)
+    ops_config:
+      phase2_cross_ref_asset_1:
+        # Asset 1 uses different source path and pattern
+        source_path: "/data/sales/input"
+        source_pattern: "sales_.*\\.csv"
+      phase2_cross_ref_asset_2:
+        # Asset 2 uses different target bucket (inherits source_path and source_pattern from job_overrides)
+        target_bucket: "my-dagster-poc-processed"
+    is_strict: true
+    tags:
+      team: "Platform"
+      org: "EDS"
+      test_type: "phase2_static"
+
+schedules:
+  - name: phase2_daily_cross_ref_schedule
+    job: phase2_cross_ref_static_job
+    cron: "0 5 * * *" # Daily at 5 AM

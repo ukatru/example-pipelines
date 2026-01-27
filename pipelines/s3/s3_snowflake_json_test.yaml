@@ -1,0 +1,36 @@
+# S3 to Snowflake - JSON Auto Create Table Test
+# Tests auto-create table functionality with Snowflake-based JSON schema inference
+#
+# Prerequisites:
+# 1. External stage: S3_NEXUS_POC (must exist in Snowflake)
+# 2. Storage integration established between S3 and Snowflake
+# 3. S3 file: adventureworks_sales.json (must exist in S3)
+
+assets:
+  - name: adventureworks_sales_json_auto_create
+    description: "Load adventureworks_sales.json with auto-create table using Snowflake inference"
+    group: s3_snowflake_tests
+    source:
+      type: S3
+      connection: S3_AWS
+      configs:
+        bucket_name: "my-dagster-poc"
+        key: "json/AdventureWorksSales_All.json"
+        object_type: JSON
+    target:
+      type: SNOWFLAKE
+      connection: SNOWFLAKE
+      configs:
+        table_name: "ADVENTUREWORKS_SALES_JSON"
+        schema_name: "PUBLIC"
+        stage: "S3_NEXUS_POC"
+        auto_create_table: true
+        match_columns: true
+        force: true
+        on_error: "SKIP_FILE"
+
+jobs:
+  - name: adventureworks_json_auto_create_job
+    description: "Test auto-create table for JSON using Snowflake inference"
+    selection:
+      - adventureworks_sales_json_auto_create

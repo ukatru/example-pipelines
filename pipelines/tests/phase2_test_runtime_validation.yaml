@@ -1,0 +1,51 @@
+# Phase 2 Test: Runtime Validation for Missing Required Parameters
+# This tests that jobs fail gracefully when required parameters without defaults are missing
+# yaml-language-server: $schema=../../../schemas/nexus-schema.json
+assets:
+  - name: phase2_validation_test_asset
+    description: "Test asset for runtime validation"
+    group: phase2_tests
+    partitions_def:
+      type: daily
+      start_date: "2000-01-01"
+      hour_offset: 19
+      minute_offset: 30
+    source:
+      type: S3
+      connection: s3_prod
+      configs:
+        bucket_name: "{{ params.source_bucket }}"
+        prefix: "{{ params.source_path }}"
+        pattern: "{{ params.source_pattern }}"
+    target:
+      type: S3
+      connection: s3_prod
+      configs:
+        bucket_name: "{{ params.target_bucket }}"
+        key: "output/{{ partition_key }}/data.csv"
+
+jobs:
+  - name: phase2_validation_test_job
+    description: "Test job for runtime parameter validation"
+    selection: ["phase2_validation_test_asset"]
+    params_schema:
+      # Parameters with defaults - should work fine
+      source_bucket: "string!|my-dagster-poc"
+      source_path: "string!|input"
+      source_pattern: "string!|.*\\.csv"
+      target_bucket: "string!|my-dagster-poc"
+      # NEW: Required parameter WITHOUT default - should fail if not set
+      # This simulates a schema change where a new required param was added
+      new_required_param: "string!"  # No default - will fail if not set in DB
+    # Shared defaults (applies to all assets)
+    job_overrides:
+      source_bucket: "my-dagster-poc"
+      source_path: "input"
+      source_pattern: ".*\\.csv"
+      target_bucket: "my-dagster-poc"
+      # NOTE: new_required_param is NOT set here - this should trigger validation error
+    is_strict: true
+    tags:
+      team: "Platform"
+      org: "EDS"
+      test_type: "phase2_validation"

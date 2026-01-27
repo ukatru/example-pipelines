@@ -1,0 +1,110 @@
+# Sample Pipeline for S3 to Snowflake Merge Operator Testing
+# This pipeline demonstrates all 6 major merge modes supported by the operator.
+
+assets:
+  - name: sales_append_load
+    description: "Basic Append only load from S3 to Snowflake"
+    source:
+      type: S3
+      resource: s3_prod
+      config:
+        bucket_name: "nexus-test-bucket" # Change to your bucket name
+        prefix: "merge_test/initial_load/"
+        object_type: CSV
+    target:
+      type: SNOWFLAKE_MERGE
+      resource: snowflake_prod
+      config:
+        table_name: "SALES_APPEND"
+        schema: "TEST"
+        target_merge_mode: APPEND
+        audit_column_enabled: true
+
+  - name: sales_upsert_load
+    description: "Upsert (Insert new, Update existing) based on Primary Key"
+    source:
+      type: S3
+      resource: s3_prod
+      config:
+        bucket_name: "nexus-test-bucket"
+        key: "merge_test/upsert_data.csv"
+        object_type: CSV
+    target:
+      type: SNOWFLAKE_MERGE
+      resource: snowflake_prod
+      config:
+        table_name: "SALES_UPSERT"
+        schema: "TEST"
+        target_merge_mode: UPSERT
+        unique_constraint_check: true
+
+  - name: sales_merge_hard_delete
+    description: "Full Merge with Hard Delete of records not in source"
+    source:
+      type: S3
+      resource: s3_prod
+      config:
+        bucket_name: "nexus-test-bucket"
+        prefix: "merge_test/full_sync/"
+        object_type: CSV
+    target:
+      type: SNOWFLAKE_MERGE
+      resource: snowflake_prod
+      config:
+        table_name: "SALES_MERGE_HARD"
+        schema: "TEST"
+        target_merge_mode: MERGE
+        audit_column_enabled: true
+
+  - name: sales_merge_soft_delete
+    description: "Full Merge with Soft Delete (Update IS_DELETED=1) of records not in source"
+    source:
+      type: S3
+      resource: s3_prod
+      config:
+        bucket_name: "nexus-test-bucket"
+        prefix: "merge_test/full_sync/"
+        object_type: CSV
+    target:
+      type: SNOWFLAKE_MERGE
+      resource: snowflake_prod
+      config:
+        table_name: "SALES_MERGE_SOFT"
+        schema: "TEST"
+        target_merge_mode: MERGE
+        is_soft_delete: true
+        soft_delete_column: "IS_DELETED"
+
+  - name: sales_truncate_load
+    description: "Truncate target table before loading source data"
+    source:
+      type: S3
+      resource: s3_prod
+      config:
+        bucket_name: "nexus-test-bucket"
+        key: "merge_test/initial_load.csv"
+        object_type: CSV
+    target:
+      type: SNOWFLAKE_MERGE
+      resource: snowflake_prod
+      config:
+        table_name: "SALES_TRUNCATE"
+        schema: "TEST"
+        target_merge_mode: TRUNCATE_LOAD
+
+  - name: sales_delete_insert
+    description: "Delete existing records found in source before inserting"
+    source:
+      type: S3
+      resource: s3_prod
+      config:
+        bucket_name: "nexus-test-bucket"
+        key: "merge_test/upsert_data.csv"
+        object_type: CSV
+    target:
+      type: SNOWFLAKE_MERGE
+      resource: snowflake_prod
+      config:
+        table_name: "SALES_DELETE_INSERT"
+        schema: "TEST"
+        target_merge_mode: DELETE_INSERT

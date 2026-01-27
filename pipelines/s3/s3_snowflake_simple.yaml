@@ -1,0 +1,33 @@
+# S3 to Snowflake - Simple Test
+# Basic COPY INTO with column matching
+
+assets:
+  - name: simple_s3_to_snowflake
+    description: "Simple S3 to Snowflake load"
+    group: s3_snowflake
+    source:
+      type: S3
+      connection: S3_AWS
+      configs:
+        bucket_name: "my-dagster-poc"
+        key: "analytics/sales.csv"
+        object_type: CSV
+        csv_options:
+          has_headers: true
+          delimiter: ","
+    target:
+      type: SNOWFLAKE
+      connection: SNOWFLAKE
+      configs:
+        table_name: "test_load"
+        stage: "MY_DAGSTER_POC_STAGE"
+        match_columns: true
+        force: true
+        on_error: "SKIP_FILE"
+        # Note: Table must exist - created via CI/CD, not by operator
+
+jobs:
+  - name: simple_s3_to_snowflake_job_2
+    description: "Simple S3 to Snowflake test"
+    selection:
+      - simple_s3_to_snowflake

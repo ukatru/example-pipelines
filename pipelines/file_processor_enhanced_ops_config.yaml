@@ -1,0 +1,202 @@
+# File Processor Enhanced - Ops Config Approach (Python-style)
+# This matches the Python code EXACTLY: Sensor → Job with Ops (not Assets)
+# Python structure:
+#   - Sensor triggers job: combined_preprocessor_asset_materialization
+#   - Job runs ops: move_split_files_inbound_caller → execute_asset_job
+#   - Ops get config via: run_config["ops"][op_name]["config"]
+
+# NOTE: Framework currently uses assets, but Python code uses ops
+# This shows what it would look like if framework supported ops directly
+
+# ============================================================================
+# PYTHON CODE STRUCTURE:
+# ============================================================================
+# @dg.op
+# def move_split_files_inbound_caller(context, config: MoveFileConfig):
+#     ...
+#
+# @dg.op  
+# def execute_asset_job(context, config: AssetCopyConfig):
+#     ...
+#
+# @dg.job
+# def combined_preprocessor_asset_materialization():
+#     move_result = move_split_files_inbound_caller()
+#     execute_asset_job(start=move_result)
+#
+# Sensor triggers job with:
+# run_config = {
+#     "ops": {
+#         "move_split_files_inbound_caller": {"config": {...}},
+#         "execute_asset_job": {"config": {...}}
+#     }
+# }
+# ============================================================================
+
+# Since framework uses assets, we'd need to either:
+# 1. Add ops support to framework, OR
+# 2. Map ops to assets (current approach)
+
+# OPTION 1: Pure Ops Approach (if framework supported ops)
+# ============================================================================
+ops:
+  - name: move_split_files_inbound_caller
+    description: "Move and split files to inbound zone"
+    required_resource_keys: [s3]
+    # Config comes from ops_config at runtime
+
+  - name: execute_asset_job
+    description: "Execute asset job for discovered files"
+    required_resource_keys: [snowflake, s3]
+    ins:
+      - name: start
+        dagster_type: Nothing
+        upstream_op: move_split_files_inbound_caller
+    # Config comes from ops_config at runtime
+
+jobs:
+  - name: combined_preprocessor_asset_materialization
+    description: "Process files with splitting and loading"
+    ops:
+      - move_split_files_inbound_caller
+      - execute_asset_job
+    # No params_schema - all config via ops_config
+    # Sensor will inject file-specific ops_config at runtime
+
+sensors:
+  - name: s3_preprocessor_sensor1
+    type: S3
+    description: "Watch landing zone for new files"
+    connection: S3
+    configs:
+      bucket_name: "my-dagster-poc"
+      prefix: "landing"
+      pattern: ".*\\.csv"
+      check_is_modifying: true
+    job: combined_preprocessor_asset_materialization
+    minimum_interval_seconds: 30
+    default_status: RUNNING
+    # Sensor will inject ops_config like Python does:
+    # run_config = {
+    #     "ops": {
+    #         "move_split_files_inbound_caller": {
+    #             "config": {
+    #                 "file_key": "landing/sales/file.csv",
+    #                 "timestamp": "20240101120000",
+    #                 "short_folder": "sales",
+    #                 "inbound_zone_prefix": "inbound",
+    #                 "head_line_number": 5,
+    #                 "foot_line_number": 100,
+    #                 "delimiter": ","
+    #             }
+    #         },
+    #         "execute_asset_job": {
+    #             "config": {
+    #                 "asset_names": ["sales_ingestion_asset", "marketing_ingestion_asset"],
+    #                 "file_key": "landing/sales/file.csv",
+    #                 "file_key_surfix": "20240101120000"
+    #             }
+    #         }
+    #     }
+    # }
+
+# ============================================================================
+# OPTION 2: Current Framework Approach (Assets, not Ops)
+# ============================================================================
+# Since framework uses assets, we map ops to assets:
+# - move_split_files_inbound_caller → process_and_split_file asset
+# - execute_asset_job → load_to_snowflake asset (or multiple assets)
+
+assets:
+  - name: process_and_split_file
+    description: "Process file with splitting, renaming, and deletion (maps to move_split_files_inbound_caller op)"
+    group: file_processing
+    source:
+      type: S3
+      connection: S3
+      configs:
+        # These would come from ops_config at runtime
+        bucket_name: "{{ ops.process_and_split_file.config.source_bucket_name }}"
+        key: "{{ ops.process_and_split_file.config.file_key }}"
+    target:
+      type: S3
+      connection: S3
+      configs:
+        bucket_name: "{{ ops.process_and_split_file.config.target_bucket_name }}"
+        prefix: "{{ ops.process_and_split_file.config.target_prefix }}"
+        delete_source: "{{ ops.process_and_split_file.config.delete_source }}"
+        rename_with_timestamp: "{{ ops.process_and_split_file.config.rename_with_timestamp }}"
+        split_config:
+          split_type: "{{ ops.process_and_split_file.config.split_type }}"
+          head_line_number: "{{ ops.process_and_split_file.config.head_line_number }}"
+          foot_line_number: "{{ ops.process_and_split_file.config.foot_line_number }}"
+          delimiter: "{{ ops.process_and_split_file.config.delimiter }}"
+
+  - name: load_to_snowflake
+    description: "Load processed file to Snowflake (maps to execute_asset_job op)"
+    group: file_processing
+    ins:
+      upstream:
+        key: process_and_split_file
+    source:
+      type: S3
+      connection: S3
+      configs:
+        bucket_name: "{{ upstream.result.bucket_name }}"
+        prefix: "{{ upstream.result.prefix }}"
+    target:
+      type: SNOWFLAKE
+      connection: SNOWFLAKE
+      configs:
+        table_name: "{{ ops.load_to_snowflake.config.table_name }}"
+        stage: "{{ ops.load_to_snowflake.config.stage }}"
+        schema_strategy: "{{ ops.load_to_snowflake.config.schema_strategy }}"
+
+jobs:
+  - name: combined_preprocessor_asset_materialization
+    description: "Process files with advanced features (Asset-based, matching ops pattern)"
+    selection:
+      - process_and_split_file
+      - load_to_snowflake
+    # Base ops_config template (sensor will override with file-specific values)
+    # Matches Python: run_config["ops"][op_name]["config"]
+    ops_config:
+      process_and_split_file:
+        # File-specific (sensor will set these per file):
+        file_key: ""  # Sensor sets: source.trigger.data.key
+        timestamp: ""  # Sensor sets: generated timestamp (YYYYMMDDHHmmss)
+        short_folder: ""  # Sensor sets: extracted from object_path
+        source_bucket_name: ""  # Sensor sets: source.trigger.data.bucket_name
+        
+        # Static or from params:
+        target_bucket_name: "my-dagster-poc"
+        target_prefix: "processing/inbound/{{ ops.process_and_split_file.config.short_folder }}"
+        delete_source: true
+        rename_with_timestamp: true
+        split_type: "line_numbers"
+        head_line_number: 5
+        foot_line_number: 100
+        delimiter: ","
+        inbound_zone_prefix: "inbound"
+      
+      load_to_snowflake:
+        # Can be static or dynamic per file
+        table_name: "sales_data"
+        stage: "my_stage"
+        schema_strategy: "evolve"
+
+sensors:
+  - name: s3_preprocessor_sensor2
+    type: S3
+    description: "Watch landing zone for new files"
+    connection: S3
+    configs:
+      bucket_name: "my-dagster-poc"
+      prefix: "landing"
+      pattern: ".*\\.csv"
+      check_is_modifying: true
+    job: combined_preprocessor_asset_materialization
+    minimum_interval_seconds: 30
+    default_status: RUNNING
+    # Sensor will inject file-specific ops_config at runtime
+    # This matches Python: sensor creates run_config["ops"][op_name]["config"]

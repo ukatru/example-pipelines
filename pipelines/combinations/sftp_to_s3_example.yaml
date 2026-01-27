@@ -24,7 +24,7 @@ sensors:
     connection: sftp_prod
     job: example_sftp_to_s3_job
     configs:
-      path: /outgoing/test_data/
+      path: /home/ukatru/data/
       pattern: ".*\\.csv"
       check_is_modifying: true
 

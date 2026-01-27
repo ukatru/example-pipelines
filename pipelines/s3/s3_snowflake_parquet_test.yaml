@@ -1,0 +1,36 @@
+# S3 to Snowflake - Parquet Auto Create Table Test
+# Tests auto-create table functionality with Snowflake-based Parquet schema inference
+#
+# Prerequisites:
+# 1. External stage: S3_NEXUS_POC (must exist in Snowflake)
+# 2. Storage integration established between S3 and Snowflake
+# 3. S3 file: adventureworks_sales.parquet (must exist in S3)
+
+assets:
+  - name: adventureworks_sales_parquet_auto_create
+    description: "Load adventureworks_sales.parquet with auto-create table using Snowflake inference"
+    group: s3_snowflake_tests
+    source:
+      type: S3
+      connection: S3_AWS
+      configs:
+        bucket_name: "my-dagster-poc"
+        key: "parquet/AdventureWorksSales_All.parquet"
+        object_type: PARQUET
+    target:
+      type: SNOWFLAKE
+      connection: SNOWFLAKE
+      configs:
+        table_name: "ADVENTUREWORKS_SALES_PARQUET"
+        schema_name: "PUBLIC"
+        stage: "S3_NEXUS_POC"
+        auto_create_table: true
+        match_columns: true
+        force: true
+        on_error: "SKIP_FILE"
+
+jobs:
+  - name: adventureworks_parquet_auto_create_job
+    description: "Test auto-create table for Parquet using Snowflake inference"
+    selection:
+      - adventureworks_sales_parquet_auto_create

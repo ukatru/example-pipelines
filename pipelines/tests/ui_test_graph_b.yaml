@@ -1,0 +1,51 @@
+# UI Test Graph B - Marketing Data Pipeline
+# Static asset graph (no jobs) - for testing per-asset config in UI
+# yaml-language-server: $schema=../../../schemas/nexus-schema.json
+assets:
+  - name: marketing_ingestion_asset
+    description: "Marketing data ingestion from S3"
+    group: marketing_pipeline
+    partitions_def:
+      type: daily
+      start_date: "2024-01-01"
+    source:
+      type: S3
+      connection: S3
+      configs:
+        bucket_name: "{{ params.source_bucket }}"
+        prefix: "{{ params.source_path }}"
+        pattern: "{{ params.source_pattern }}"
+    target:
+      type: S3
+      connection: S3
+      configs:
+        bucket_name: "{{ params.target_bucket }}"
+        key: "marketing/raw/{{ partition_key }}/data.parquet"
+    tags:
+      domain: "marketing"
+      tier: "raw"
+
+  - name: marketing_analytics_asset
+    description: "Marketing analytics aggregated data"
+    group: marketing_pipeline
+    partitions_def:
+      type: daily
+      start_date: "2024-01-01"
+    ins:
+      upstream:
+        key: marketing_ingestion_asset
+    source:
+      type: S3
+      connection: S3
+      configs:
+        bucket_name: "{{ upstream.result.bucket_name }}"
+        prefix: "{{ upstream.result.prefix }}"
+    target:
+      type: S3
+      connection: S3
+      configs:
+        bucket_name: "{{ params.target_bucket }}"
+        key: "marketing/analytics/{{ partition_key }}/data.parquet"
+    tags:
+      domain: "marketing"
+      tier: "analytics"

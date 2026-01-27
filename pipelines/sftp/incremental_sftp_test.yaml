@@ -1,0 +1,30 @@
+assets:
+  - name: sftp_to_s3_incremental
+    type: SFTP_TO_S3
+    connection: sftp_prod
+    configs:
+      # The sensor will trigger this asset for each NEW file found.
+      # Metadata about the specific file is passed via 'source.trigger.data'.
+      path: "upload/{{ source.trigger.data.file_name }}"
+      bucket_name: "my-dagster-poc"
+      key: "incremental/{{ source.trigger.data.file_name }}"
+
+jobs:
+  - name: sftp_to_s3_job
+    description: "Process SFTP files to S3"
+    selection:
+      - sftp_to_s3_incremental
+
+sensors:
+  - name: sftp_watcher
+    type: SFTP
+    connection: SFTP
+    job: sftp_to_s3_job
+    minimum_interval_seconds: 60
+    configs:
+      path: "/home/ukatru/data"
+      pattern: ".*\\.csv"
+      # Only pick up files larger than 1MB (1024 * 1024 bytes)
+      # No 'f.' or 'info.' prefix needed anymore!
+      predicate: "file_size > 1048576"
+      check_is_modifying: true

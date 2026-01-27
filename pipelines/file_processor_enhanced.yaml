@@ -1,0 +1,108 @@
+# File Processor Enhanced - Proposed YAML with Gap Solutions
+# This demonstrates what COULD be done with proposed enhancements
+# NOTE: This is a PROPOSAL - not yet implemented
+
+assets:
+  - name: process_and_split_file
+    description: "Process file with splitting, renaming, and deletion"
+    group: file_processing
+    source:
+      type: S3
+      connection: S3
+      configs:
+        # Use the specific file discovered by the sensor (file_key from Python MoveFileConfig)
+        bucket_name: "{{ source.trigger.data.bucket_name }}"
+        key: "{{ source.trigger.data.key }}"
+    target:
+      type: S3
+      connection: S3
+      configs:
+        bucket_name: "{{ params.aws_s3_bucket }}"
+        # Extract short_folder from object_path (Python: relative_obj_key.split("/")[-2])
+        # object_path is "folder/file.csv" when prefix is "landing"
+        # Use object_path to get the folder name (first part before filename)
+        prefix: "{{ params.processing_zone_prefix }}/{{ params.inbound_zone_prefix }}/{{ source.trigger.data.object_path.split('/')[0] }}"
+        # Delete source after successful copy
+        delete_source: true
+        # Rename with timestamp
+        rename_with_timestamp: true
+        # Split file configuration
+        split_config:
+          split_type: "line_numbers"  # or "text_markers"
+          head_line_number: "{{ params.head_line_number }}"
+          foot_line_number: "{{ params.foot_line_number }}"
+          delimiter: "{{ params.delimiter }}"
+          # Alternative: text markers
+          # start_of_data: "{{ params.start_of_data }}"
+          # end_of_data: "{{ params.end_of_data }}"
+
+  - name: load_to_snowflake
+    description: "Load processed file to Snowflake"
+    group: file_processing
+    ins:
+      upstream:
+        key: process_and_split_file
+    source:
+      type: S3
+      connection: S3
+      configs:
+        bucket_name: "{{ upstream.result.bucket_name }}"
+        prefix: "{{ upstream.result.prefix }}"
+    target:
+      type: SNOWFLAKE
+      connection: SNOWFLAKE
+      configs:
+        table_name: "{{ params.target_table }}"
+        stage: "{{ params.snowflake_stage }}"
+        schema_strategy: "evolve"
+    # PROPOSED: Error handling with file movement
+    on_error:
+      - name: move_to_error_zone
+        type: S3
+        source:
+          type: S3
+          configs:
+            bucket_name: "{{ upstream.result.bucket_name }}"
+            prefix: "{{ upstream.result.prefix }}"
+        target:
+          type: S3
+          configs:
+            bucket_name: "{{ params.aws_s3_bucket }}"
+            prefix: "{{ params.error_zone_prefix }}"
+
+sensors:
+  - name: s3_preprocessor_sensor
+    type: S3
+    description: "Watch landing zone for new files"
+    connection: S3  # Connection provides credentials only (not bucket_name)
+    configs:
+      bucket_name: "my-dagster-poc"  # Must come from job params
+      prefix: "landing"
+      pattern: ".*\\.csv"
+      check_is_modifying: true
+    job: file_processor_job
+    minimum_interval_seconds: 30
+    default_status: RUNNING
+
+jobs:
+  - name: file_processor_job
+    description: "Process files with advanced features"
+    selection:
+      - process_and_split_file
+      - load_to_snowflake
+    params_schema:
+      aws_s3_bucket: "string|my-dagster-poc"
+      landing_zone_prefix: "string|landing"
+      processing_zone_prefix: "string|processing"
+      inbound_zone_prefix: "string|inbound"
+      error_zone_prefix: "string|error"
+      short_folder: "string!"
+      source_file_regex: "string|.+\\.csv"
+      # File splitting parameters
+      head_line_number: "int"
+      foot_line_number: "int"
+      delimiter: "string|,"
+      start_of_data: "string"
+      end_of_data: "string"
+      target_table: "string!"
+      snowflake_stage: "string!"

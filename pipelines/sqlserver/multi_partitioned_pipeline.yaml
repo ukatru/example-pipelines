@@ -19,16 +19,16 @@ assets:
 
     source:
       type: SQLSERVER
-      connection: "{{ params.market_db_connect }}"
+      connection: "SQL_SOURCE"
       configs:
         # Using {{ partition_key.dimension }} syntax
         sql: "SELECT * FROM dbo.Sales WHERE SaleDate = '{{ partition_key.date }}' AND Region = '{{ partition_key.region }}'"
       
     target:
       type: S3
-      connection: "{{ params.target_conn_nm }}"
+      connection: "S3"
       configs:
-        bucket_name: "{{ params.target_bucket }}"
+        bucket_name: "my-dagster-poc"
         # Dynamic path with dimensions
         key: "raw/regional_sales/region={{ partition_key.region }}/date={{ partition_key.date }}/sales.csv"
         object_type: CSV

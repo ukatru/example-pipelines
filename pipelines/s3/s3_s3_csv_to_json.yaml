@@ -1,0 +1,47 @@
+# S3 to S3 - CSV to JSON Conversion
+# Converts CSV files to JSON format during S3 transfer
+#
+# This pipeline demonstrates format conversion from CSV to JSON.
+# The operator will:
+# 1. Read CSV files from source S3 location
+# 2. Convert each CSV file to JSON format using pandas
+# 3. Write JSON files to target S3 location
+#
+# JSON Options:
+#   - orient: "records" (default) - array of objects, one per row
+#   - fields: null (use all columns) or list of column names
+#
+# Example:
+#   Source: s3://my-dagster-poc/raw/csv/sales.csv
+#   Target: s3://my-dagster-poc/processed/json/sales.json
+
+assets:
+  - name: csv_to_json_conversion
+    description: "Convert CSV files to JSON format during S3 transfer"
+    group: s3_s3
+    source:
+      type: S3
+      connection: S3
+      configs:
+        bucket_name: "my-dagster-poc"
+        key: "adventures/AdventureWorksSales_All.csv"
+        object_type: CSV
+        csv_options:
+          has_headers: true
+          delimiter: ","
+    target:
+      type: S3
+      connection: S3
+      configs:
+        bucket_name: "my-dagster-poc"
+        key: "adventures/json/AdventureWorksSales_All.json"
+        object_type: JSON
+        json_options:
+          orient: "records" # Options: "records", "values", "index", "columns", "table"
+          fields: null # null = use all columns, or specify: ["col1", "col2", ...]
+
+jobs:
+  - name: csv_to_json_job
+    description: "Convert CSV files to JSON format"
+    selection:
+      - csv_to_json_conversion

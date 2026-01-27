@@ -1,0 +1,77 @@
+# Test Multi-Asset Job Combinations
+# Tests various ways to select sales and marketing assets
+# yaml-language-server: $schema=../../../schemas/nexus-schema.json
+
+jobs:
+  # Test 1: Explicit selection of both ingestion assets
+  - name: test_multi_asset_explicit_yaml
+    description: "Test: Explicitly select sales_ingestion_asset and marketing_ingestion_asset (YAML)"
+    selection:
+      - key: sales_ingestion_asset
+      - key: marketing_ingestion_asset
+    tags:
+      test: "explicit_selection"
+      domain: "multi_asset"
+      source: "yaml"
+
+  # Test 2: Select with downstream using * syntax
+  - name: test_multi_asset_downstream_yaml
+    description: "Test: Select with downstream using * syntax (YAML)"
+    selection:
+      - key: sales_ingestion_asset*
+      - key: marketing_ingestion_asset*
+    tags:
+      test: "downstream_selection"
+      domain: "multi_asset"
+      source: "yaml"
+
+  # Test 3: Select by groups
+  - name: test_multi_asset_groups_yaml
+    description: "Test: Select by groups (YAML)"
+    selection:
+      - group: sales_pipeline
+      - group: marketing_pipeline
+    tags:
+      test: "group_selection"
+      domain: "multi_asset"
+      source: "yaml"
+
+  # Test 4: Mixed selection (explicit + downstream)
+  - name: test_multi_asset_mixed_yaml
+    description: "Test: Mixed selection - explicit sales, downstream marketing (YAML)"
+    selection:
+      - key: sales_ingestion_asset
+      - key: marketing_ingestion_asset*
+    tags:
+      test: "mixed_selection"
+      domain: "multi_asset"
+      source: "yaml"
+
+  # Test 5: All assets from both pipelines with ops_config example
+  - name: test_multi_asset_all_yaml
+    description: "Test: All assets from both pipelines with ops_config (YAML)"
+    selection:
+      - key: sales_ingestion_asset*
+      - key: marketing_ingestion_asset*
+    params_schema:
+      source_bucket: "string!"
+      source_path: "string!"
+      source_pattern: "string!"
+      target_bucket: "string!"
+    job_overrides:
+      source_bucket: "my-dagster-poc"
+      source_path: "input"
+      source_pattern: ".*\\.csv"
+      target_bucket: "my-dagster-poc"
+    ops_config:
+      sales_ingestion_asset:
+        source_bucket: "sales-data-bucket"
+        source_path: "sales/input"
+      marketing_ingestion_asset:
+        source_bucket: "marketing-data-bucket"
+        source_path: "marketing/input"
+        target_bucket: "marketing-processed-bucket"
+    tags:
+      test: "all_with_ops_config"
+      domain: "multi_asset"
+      source: "yaml"

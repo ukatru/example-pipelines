@@ -1,0 +1,68 @@
+# Phase 2 Test: Multi-Asset Job with Per-Asset Overrides
+# This tests that per-asset config (ops_config) works correctly
+# yaml-language-server: $schema=../../../schemas/nexus-schema.json
+assets:
+  - name: phase2_asset_sales
+    description: "Sales asset with per-asset override"
+    group: phase2_tests
+    partitions_def:
+      type: daily
+      start_date: "2024-01-01"
+    source:
+      type: S3
+      connection: s3_prod
+      configs:
+        bucket_name: "{{ params.source_bucket }}"
+        prefix: "{{ params.source_path }}"
+        pattern: "{{ params.source_pattern }}"
+    target:
+      type: S3
+      connection: s3_prod
+      configs:
+        bucket_name: "{{ params.target_bucket }}"
+        key: "output/sales/{{ partition_key }}/data.csv"
+
+  - name: phase2_asset_marketing
+    description: "Marketing asset with per-asset override"
+    group: phase2_tests
+    partitions_def:
+      type: daily
+      start_date: "2024-01-01"
+    source:
+      type: S3
+      connection: s3_prod
+      configs:
+        bucket_name: "{{ params.source_bucket }}"
+        prefix: "{{ params.source_path }}"
+        pattern: "{{ params.source_pattern }}"
+    target:
+      type: S3
+      connection: s3_prod
+      configs:
+        bucket_name: "{{ params.target_bucket }}"
+        key: "output/marketing/{{ partition_key }}/data.csv"
+
+jobs:
+  - name: phase2_multi_override_job
+    description: "Phase 2 Test: Multi-asset job with per-asset overrides"
+    selection: ["phase2_asset_sales", "phase2_asset_marketing"]
+    params_schema:
+      source_bucket: "string!|my-dagster-poc"
+      source_path: "string!|input"
+      source_pattern: "string!|.*\\.csv"
+      target_bucket: "string!|my-dagster-poc"
+    # Shared params (applies to all assets)
+    job_overrides:
+      target_bucket: "my-dagster-poc"
+      source_pattern: ".*\\.csv"
+    # Per-asset overrides (NEW - Phase 2)
+    ops_config:
+      phase2_asset_sales:
+        source_bucket: "sales-data-bucket"
+        source_path: "sales/input"
+      phase2_asset_marketing:
+        source_bucket: "marketing-data-bucket"
+        source_path: "marketing/input"
+    # Expected result:
+    # - phase2_asset_sales: {source_bucket: "sales-data-bucket", source_path: "sales/input", source_pattern: ".*\\.csv", target_bucket: "my-dagster-poc"}
+    # - phase2_asset_marketing: {source_bucket: "marketing-data-bucket", source_path: "marketing/input", source_pattern: ".*\\.csv", target_bucket: "my-dagster-poc"}

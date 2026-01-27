@@ -1,0 +1,64 @@
+# PostgreSQL to Snowflake - Incremental Sync
+# Demonstrates incremental sync using sync_mode and update_key
+#
+# This pipeline shows:
+# 1. Incremental sync based on update_key column
+# 2. Automatic last_sync_value tracking
+# 3. Only transfers new/updated rows since last run
+#
+# Prerequisites:
+# - PostgreSQL connection configured
+# - Snowflake connection configured
+# - Source table has a date/timestamp column for incremental tracking
+# - Target table exists (or will be auto-created)
+
+assets:
+  - name: postgres_to_snowflake_incremental
+    description: "Incremental PostgreSQL to Snowflake transfer using update_key"
+    group: postgres_snowflake
+    source:
+      type: POSTGRES
+      connection: POSTGRES # Update to your PostgreSQL connection name
+      configs:
+        # Use table_name for incremental sync (sync_mode requires table_name)
+        table_name: "orders" # Update to your source table name
+        schema_name: "public" # Optional: PostgreSQL schema (defaults to public)
+
+        # Incremental sync configuration
+        sync_mode: incremental # Options: full-refresh, incremental
+        update_key: "updated_at" # Column name (date/timestamp) for incremental tracking
+        # The update_key column should exist in both source and target tables
+
+        rows_chunk: 10000
+
+    target:
+      type: SNOWFLAKE
+      connection: SNOWFLAKE # Update to your Snowflake connection name
+      configs:
+        table_name: "orders" # Target table name
+        schema_name: "DATA_ANALYTICS" # Optional: Snowflake schema
+
+        # Auto table creation
+        auto_create_table: true
+
+        # Type validation
+        type_mismatch_failure: true
+
+        # Add new columns automatically
+        add_new_columns: true
+
+        # Optional: Deletion strategy (soft delete or hard delete)
+        # delete_strategy: soft_delete # Options: none, soft_delete, hard_delete
+        # soft_delete_column: "is_deleted" # Required if delete_strategy is soft_delete
+        # primary_key: ["order_id"] # Required for deletion strategies (auto-detected if table has PK constraint)
+
+jobs:
+  - name: postgres_to_snowflake_incremental_job
+    description: "Incremental PostgreSQL to Snowflake transfer"
+    selection:
+      - postgres_to_snowflake_incremental
+
+schedules:
+  - name: daily_postgres_to_snowflake_incremental_schedule
+    job: postgres_to_snowflake_incremental_job
+    cron: "0 2 * * *" # Daily at 2:00 AM

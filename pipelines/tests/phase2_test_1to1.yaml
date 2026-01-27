@@ -1,0 +1,39 @@
+# Phase 2 Test: 1:1 Job (Single Asset, No Per-Asset Override)
+# This tests that 1:1 jobs continue to work as before
+# yaml-language-server: $schema=../../../schemas/nexus-schema.json
+assets:
+  - name: phase2_single_asset
+    description: "Single asset for 1:1 job test"
+    group: phase2_tests
+    partitions_def:
+      type: daily
+      start_date: "2024-01-01"
+    source:
+      type: S3
+      connection: s3_prod
+      configs:
+        bucket_name: "{{ params.source_bucket }}"
+        prefix: "{{ params.source_path }}"
+        pattern: "{{ params.source_pattern }}"
+    target:
+      type: S3
+      connection: s3_prod
+      configs:
+        bucket_name: "{{ params.target_bucket }}"
+        key: "output/{{ partition_key }}/data.csv"
+
+jobs:
+  - name: phase2_1to1_job
+    description: "Phase 2 Test: 1:1 job with shared params only"
+    selection: ["phase2_single_asset"]
+    params_schema:
+      source_bucket: "string!|my-dagster-poc"
+      source_path: "string!|input"
+      source_pattern: "string!|.*\\.csv"
+      target_bucket: "string!|my-dagster-poc"
+    job_overrides:
+      source_bucket: "my-dagster-poc"
+      source_path: "input"
+      source_pattern: ".*\\.csv"
+      target_bucket: "my-dagster-poc"
+    # No ops_config - should use job_overrides for the single asset

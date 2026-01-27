@@ -1,0 +1,61 @@
+# SQL Server to Snowflake - With Custom SQL Query
+# Alternative example using custom SQL instead of table_name
+#
+# This pipeline demonstrates:
+# 1. Using custom SQL query instead of table_name
+# 2. Auto table creation (note: schema inference works with table_name, not custom SQL)
+# 3. Type validation
+
+assets:
+  - name: sqlserver_to_snowflake_with_sql
+    description: "SQL Server to Snowflake with custom SQL query"
+    group: sqlserver_snowflake
+    source:
+      type: SQLSERVER
+      connection: SQLSERVER  # Update to your SQL Server connection name
+      configs:
+        # Use custom SQL query
+        sql: |
+          SELECT TOP 10000
+            SalesOrderNumber,
+            OrderDate,
+            CustomerName,
+            ProductName,
+            Quantity,
+            UnitPrice,
+            TotalAmount
+          FROM dbo.AdventureWorksSales
+          WHERE OrderDate >= '2023-01-01'
+        rows_chunk: 5000
+        
+    target:
+      type: SNOWFLAKE
+      connection: SNOWFLAKE  # Update to your Snowflake connection name
+      configs:
+        table_name: "SALES_DATA_FILTERED"
+        
+        # Note: auto_create_table requires table_name in source config
+        # For custom SQL, you need to create the table manually or use sql_pre
+        auto_create_table: false  # Set to false when using custom SQL
+        
+        # You can still use type validation if table exists
+        type_mismatch_failure: true
+        
+        # Alternative: Create table manually via sql_pre
+        # sql_pre:
+        #   - |
+        #     CREATE TABLE IF NOT EXISTS SALES_DATA_FILTERED (
+        #       SalesOrderNumber VARCHAR(50),
+        #       OrderDate TIMESTAMP_NTZ,
+        #       CustomerName VARCHAR(255),
+        #       ProductName VARCHAR(255),
+        #       Quantity NUMBER(10,0),
+        #       UnitPrice NUMBER(18,2),
+        #       TotalAmount NUMBER(18,2)
+        #     )
+
+jobs:
+  - name: sqlserver_to_snowflake_with_sql_job
+    description: "SQL Server to Snowflake with custom SQL"
+    selection:
+      - sqlserver_to_snowflake_with_sql

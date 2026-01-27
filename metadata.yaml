@@ -1,4 +1,4 @@
-team: Marketplace
+team: Platform
 org: EDS
-code_location: example-pipelines
-description: "Core marketplace data processing pipelines."
+code_location: platform-pipelines
+description: "Core platform data processing pipelines."

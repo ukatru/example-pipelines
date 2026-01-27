@@ -1,0 +1,4 @@
+jobs:
+  - name: cross_ref_test_job_poc
+    description: "Multi-asset transfer with cross-reference validation and parameters."
+    selection: ["cross_ref_test_asset_only"]

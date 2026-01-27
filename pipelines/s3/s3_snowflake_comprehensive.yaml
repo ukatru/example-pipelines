@@ -1,0 +1,339 @@
+# S3 to Snowflake - Comprehensive Test
+# Tests all features: column matching, validation, schema strategies
+
+assets:
+  # Test 1: Basic COPY INTO
+  - name: test_basic
+    description: "Basic COPY INTO with column matching"
+    group: s3_snowflake_tests
+    source:
+      type: S3
+      connection: S3
+      configs:
+        bucket_name: "my-dagster-poc"
+        key: "test_data/basic.csv"
+        object_type: CSV
+        csv_options:
+          has_headers: true
+          delimiter: ","
+    target:
+      type: SNOWFLAKE
+      connection: SNOWFLAKE
+      configs:
+        table_name: "TEST_BASIC"
+        stage: "MY_DAGSTER_POC_STAGE"
+        match_columns: true
+        force: true
+        on_error: "SKIP_FILE"
+        schema_strategy: "fail"
+
+  # Test 2: Column Name Matching with Validation
+  - name: test_column_name_match
+    description: "Column matching by name with validation"
+    group: s3_snowflake_tests
+    source:
+      type: S3
+      connection: S3
+      configs:
+        bucket_name: "my-dagster-poc"
+        prefix: "test_data/column_match/"
+        pattern: ".*\\.csv"
+        object_type: CSV
+        csv_options:
+          has_headers: true
+          delimiter: ","
+    target:
+      type: SNOWFLAKE
+      connection: SNOWFLAKE
+      configs:
+        table_name: "TEST_COLUMN_MATCH"
+        stage: "MY_DAGSTER_POC_STAGE"
+        match_columns: true
+        column_match_config: "column_name_match"
+        column_mismatch_failure: true
+        force: true
+        on_error: "SKIP_FILE"
+        schema_strategy: "fail"
+
+  # Test 3: Column Order Matching
+  - name: test_column_order
+    description: "Column matching by position"
+    group: s3_snowflake_tests
+    source:
+      type: S3
+      connection: S3
+      configs:
+        bucket_name: "my-dagster-poc"
+        key: "test_data/order_match.csv"
+        object_type: CSV
+        csv_options:
+          has_headers: true
+          delimiter: ","
+    target:
+      type: SNOWFLAKE
+      connection: SNOWFLAKE
+      configs:
+        table_name: "TEST_COLUMN_ORDER"
+        stage: "MY_DAGSTER_POC_STAGE"
+        match_columns: false
+        column_match_config: "target_column_order"
+        column_mismatch_failure: true
+        force: true
+        on_error: "SKIP_FILE"
+        schema_strategy: "fail"
+
+  # Test 4: Schema Strategy - CREATE
+  - name: test_schema_create
+    description: "Auto-create table if it doesn't exist"
+    group: s3_snowflake_tests
+    source:
+      type: S3
+      connection: S3
+      configs:
+        bucket_name: "my-dagster-poc"
+        key: "test_data/schema_create.csv"
+        object_type: CSV
+        csv_options:
+          has_headers: true
+          delimiter: ","
+    target:
+      type: SNOWFLAKE
+      connection: SNOWFLAKE
+      configs:
+        table_name: "TEST_SCHEMA_CREATE"
+        stage: "MY_DAGSTER_POC_STAGE"
+        match_columns: true
+        schema_strategy: "create"
+        force: true
+        on_error: "SKIP_FILE"
+
+  # Test 5: Schema Strategy - EVOLVE
+  - name: test_schema_evolve
+    description: "Auto-add new columns if they exist in source"
+    group: s3_snowflake_tests
+    source:
+      type: S3
+      connection: S3
+      configs:
+        bucket_name: "my-dagster-poc"
+        key: "test_data/schema_evolve.csv"
+        object_type: CSV
+        csv_options:
+          has_headers: true
+          delimiter: ","
+    target:
+      type: SNOWFLAKE
+      connection: SNOWFLAKE
+      configs:
+        table_name: "TEST_SCHEMA_EVOLVE"
+        stage: "MY_DAGSTER_POC_STAGE"
+        match_columns: true
+        schema_strategy: "evolve"
+        force: true
+        on_error: "SKIP_FILE"
+
+  # Test 6: Schema Strategy - STRICT
+  - name: test_schema_strict
+    description: "Strict schema validation"
+    group: s3_snowflake_tests
+    source:
+      type: S3
+      connection: S3
+      configs:
+        bucket_name: "my-dagster-poc"
+        key: "test_data/schema_strict.csv"
+        object_type: CSV
+        csv_options:
+          has_headers: true
+          delimiter: ","
+    target:
+      type: SNOWFLAKE
+      connection: SNOWFLAKE
+      configs:
+        table_name: "TEST_SCHEMA_STRICT"
+        stage: "MY_DAGSTER_POC_STAGE"
+        match_columns: true
+        schema_strategy: "strict"
+        column_mismatch_failure: true
+        force: true
+        on_error: "SKIP_FILE"
+
+  # Test 7: Unique Constraint Validation
+  - name: test_unique_check
+    description: "Validate no duplicate rows after load"
+    group: s3_snowflake_tests
+    source:
+      type: S3
+      connection: S3
+      configs:
+        bucket_name: "my-dagster-poc"
+        key: "test_data/unique_check.csv"
+        object_type: CSV
+        csv_options:
+          has_headers: true
+          delimiter: ","
+    target:
+      type: SNOWFLAKE
+      connection: SNOWFLAKE
+      configs:
+        table_name: "TEST_UNIQUE_CHECK"
+        stage: "MY_DAGSTER_POC_STAGE"
+        match_columns: true
+        unique_constraint_check: true
+        force: true
+        on_error: "SKIP_FILE"
+        schema_strategy: "fail"
+
+  # Test 8: Parquet Format
+  - name: test_parquet
+    description: "Load Parquet files"
+    group: s3_snowflake_tests
+    source:
+      type: S3
+      connection: S3
+      configs:
+        bucket_name: "my-dagster-poc"
+        prefix: "test_data/parquet/"
+        pattern: ".*\\.parquet"
+        object_type: PARQUET
+    target:
+      type: SNOWFLAKE
+      connection: SNOWFLAKE
+      configs:
+        table_name: "TEST_PARQUET"
+        stage: "MY_DAGSTER_POC_STAGE"
+        match_columns: true
+        schema_strategy: "create"
+        force: true
+        on_error: "SKIP_FILE"
+
+  # Test 9: JSON Format
+  - name: test_json
+    description: "Load JSON files"
+    group: s3_snowflake_tests
+    source:
+      type: S3
+      connection: S3
+      configs:
+        bucket_name: "my-dagster-poc"
+        prefix: "test_data/json/"
+        pattern: ".*\\.json"
+        object_type: JSON
+    target:
+      type: SNOWFLAKE
+      connection: SNOWFLAKE
+      configs:
+        table_name: "TEST_JSON"
+        stage: "MY_DAGSTER_POC_STAGE"
+        match_columns: true
+        schema_strategy: "create"
+        force: true
+        on_error: "SKIP_FILE"
+
+  # Test 10: Multiple Files
+  - name: test_multiple_files
+    description: "Load multiple CSV files from prefix"
+    group: s3_snowflake_tests
+    source:
+      type: S3
+      connection: S3
+      configs:
+        bucket_name: "my-dagster-poc"
+        prefix: "test_data/multi_file/"
+        pattern: ".*\\.csv"
+        object_type: CSV
+        csv_options:
+          has_headers: true
+          delimiter: ","
+    target:
+      type: SNOWFLAKE
+      connection: SNOWFLAKE
+      configs:
+        table_name: "TEST_MULTI_FILE"
+        stage: "MY_DAGSTER_POC_STAGE"
+        match_columns: true
+        force: true
+        on_error: "CONTINUE"
+        schema_strategy: "fail"
+
+  # Test 11: All Features Combined
+  - name: test_all_features
+    description: "Test all features together"
+    group: s3_snowflake_tests
+    source:
+      type: S3
+      connection: S3
+      configs:
+        bucket_name: "my-dagster-poc"
+        prefix: "test_data/comprehensive/"
+        pattern: ".*\\.csv"
+        object_type: CSV
+        csv_options:
+          has_headers: true
+          delimiter: ","
+    target:
+      type: SNOWFLAKE
+      connection: SNOWFLAKE
+      configs:
+        table_name: "TEST_ALL_FEATURES"
+        stage: "MY_DAGSTER_POC_STAGE"
+        match_columns: true
+        column_match_config: "column_name_match"
+        column_mismatch_failure: true
+        unique_constraint_check: true
+        schema_strategy: "evolve"
+        force: true
+        on_error: "SKIP_FILE"
+
+jobs:
+  # Simple test job
+  - name: simple_s3_to_snowflake_job
+    description: "Simple S3 to Snowflake test"
+    selection:
+      - simple_s3_to_snowflake
+
+  # Individual test jobs
+  - name: test_basic_job
+    description: "Test basic COPY INTO"
+    selection:
+      - test_basic
+
+  - name: test_column_matching_job
+    description: "Test column matching"
+    selection:
+      - test_column_name_match
+      - test_column_order
+
+  - name: test_schema_strategies_job
+    description: "Test schema strategies"
+    selection:
+      - test_schema_create
+      - test_schema_evolve
+      - test_schema_strict
+
+  - name: test_validation_job
+    description: "Test validation features"
+    selection:
+      - test_unique_check
+
+  - name: test_file_formats_job
+    description: "Test different file formats"
+    selection:
+      - test_parquet
+      - test_json
+
+  # All tests job
+  - name: s3_snowflake_comprehensive_test_job
+    description: "Run all S3-Snowflake tests"
+    selection:
+      - test_basic
+      - test_column_name_match
+      - test_column_order
+      - test_schema_create
+      - test_schema_evolve
+      - test_schema_strict
+      - test_unique_check
+      - test_parquet
+      - test_json
+      - test_multiple_files
+      - test_all_features

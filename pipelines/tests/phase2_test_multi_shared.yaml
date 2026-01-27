@@ -1,0 +1,59 @@
+# Phase 2 Test: Multi-Asset Job with Shared Params Only
+# This tests that multi-asset jobs work with shared params (no per-asset overrides)
+# yaml-language-server: $schema=../../../schemas/nexus-schema.json
+assets:
+  - name: phase2_asset_a
+    description: "Asset A for multi-asset test"
+    group: phase2_tests
+    partitions_def:
+      type: daily
+      start_date: "2024-01-01"
+    source:
+      type: S3
+      connection: s3_prod
+      configs:
+        bucket_name: "{{ params.source_bucket }}"
+        prefix: "{{ params.source_path }}/asset_a"
+        pattern: "{{ params.source_pattern }}"
+    target:
+      type: S3
+      connection: s3_prod
+      configs:
+        bucket_name: "{{ params.target_bucket }}"
+        key: "output/asset_a/{{ partition_key }}/data.csv"
+
+  - name: phase2_asset_b
+    description: "Asset B for multi-asset test"
+    group: phase2_tests
+    partitions_def:
+      type: daily
+      start_date: "2024-01-01"
+    source:
+      type: S3
+      connection: s3_prod
+      configs:
+        bucket_name: "{{ params.source_bucket }}"
+        prefix: "{{ params.source_path }}/asset_b"
+        pattern: "{{ params.source_pattern }}"
+    target:
+      type: S3
+      connection: s3_prod
+      configs:
+        bucket_name: "{{ params.target_bucket }}"
+        key: "output/asset_b/{{ partition_key }}/data.csv"
+
+jobs:
+  - name: phase2_multi_shared_job
+    description: "Phase 2 Test: Multi-asset job with shared params only"
+    selection: ["phase2_asset_a", "phase2_asset_b"]
+    params_schema:
+      source_bucket: "string!|my-dagster-poc"
+      source_path: "string!|input"
+      source_pattern: "string!|.*\\.csv"
+      target_bucket: "string!|my-dagster-poc"
+    job_overrides:
+      source_bucket: "my-dagster-poc"
+      source_path: "input"
+      source_pattern: ".*\\.csv"
+      target_bucket: "my-dagster-poc"
+    # No ops_config - both assets should use shared params

@@ -1,0 +1,177 @@
+# S3 Snowflake Ingestion - Ops Config Pattern (Python-style)
+# This matches the Python code pattern from s3_snowflake_injestion_job.py
+# 
+# Key Pattern:
+# 1. Sensor discovers files and matches to patterns
+# 2. For each file, sensor creates RunRequest with:
+#    - asset_selection: Dynamic assets based on file name
+#    - run_config: ops config with file-specific parameters
+# 3. Assets are selected dynamically: base asset + file-specific assets
+
+assets:
+  # Base asset (always included)
+  - name: move_actl_files_processed_inbound
+    description: "Move and process files to inbound zone"
+    group: file_processing
+    source:
+      type: S3
+      connection: S3
+      configs:
+        # File-specific config comes from ops_config at runtime
+        bucket_name: "{{ ops.move_actl_files_processed_inbound.config.source_bucket_name }}"
+        key: "{{ ops.move_actl_files_processed_inbound.config.file_key_to_process }}"
+    target:
+      type: S3
+      connection: S3
+      configs:
+        bucket_name: "{{ ops.move_actl_files_processed_inbound.config.target_bucket_name }}"
+        prefix: "{{ ops.move_actl_files_processed_inbound.config.target_prefix }}"
+  
+  # Dynamic assets (selected based on file patterns)
+  # These would be defined elsewhere or generated dynamically
+  # Example: sales_data, marketing_data, etc. (based on file_name matching)
+  - name: sales_data
+    description: "Load sales data to Snowflake"
+    group: ingestion
+    ins:
+      upstream:
+        key: move_actl_files_processed_inbound
+    source:
+      type: S3
+      connection: S3
+      configs:
+        bucket_name: "{{ upstream.result.bucket_name }}"
+        prefix: "{{ upstream.result.prefix }}"
+    target:
+      type: SNOWFLAKE
+      connection: SNOWFLAKE
+      configs:
+        table_name: "sales_data"
+        stage: "my_stage"
+        schema_strategy: "evolve"
+  
+  - name: marketing_data
+    description: "Load marketing data to Snowflake"
+    group: ingestion
+    ins:
+      upstream:
+        key: move_actl_files_processed_inbound
+    source:
+      type: S3
+      connection: S3
+      configs:
+        bucket_name: "{{ upstream.result.bucket_name }}"
+        prefix: "{{ upstream.result.prefix }}"
+    target:
+      type: SNOWFLAKE
+      connection: SNOWFLAKE
+      configs:
+        table_name: "marketing_data"
+        stage: "my_stage"
+        schema_strategy: "evolve"
+
+sensors:
+  - name: actl_bnd_assets_sensor
+    type: S3
+    description: "Watch landing zone and dynamically select assets based on file patterns"
+    connection: S3
+    configs:
+      bucket_name: "{{ params.aws_s3_bucket }}"
+      prefix: "{{ params.landing_zone_prefix }}"
+      pattern: ".*\\.csv"
+      check_is_modifying: true
+    job: s3_snowflake_injestion_job
+    minimum_interval_seconds: 120
+    default_status: RUNNING
+    # Sensor will:
+    # 1. Discover files matching patterns
+    # 2. Match files to asset names (via get_file_match)
+    # 3. Create RunRequest with:
+    #    - asset_selection: [move_actl_files_processed_inbound] + [matched_asset_names]
+    #    - run_config: {"ops": {"move_actl_files_processed_inbound": {"config": {"file_key_to_process": file_key}}}}
+
+jobs:
+  - name: s3_snowflake_injestion_job
+    description: "S3 to Snowflake ingestion with dynamic asset selection"
+    # Selection is dynamic - sensor determines which assets to run
+    # Base selection (sensor will add file-specific assets)
+    selection:
+      - move_actl_files_processed_inbound
+      # Additional assets selected dynamically by sensor based on file patterns
+    
+    params_schema:
+      aws_s3_bucket: "string!"
+      landing_zone_prefix: "string!"
+      target_bucket_name: "string!"
+      target_prefix: "string!"
+    
+    # Base ops_config template (sensor will override with file-specific values)
+    # Matches Python: run_config["ops"]["move_actl_files_processed_inbound"]["config"]
+    ops_config:
+      move_actl_files_processed_inbound:
+        # File-specific (sensor will set these per file):
+        file_key_to_process: ""  # Sensor sets: discovered file_key
+        source_bucket_name: ""  # Sensor sets: from sensor config
+        target_bucket_name: "{{ params.target_bucket_name }}"
+        target_prefix: "{{ params.target_prefix }}"
+
+# ============================================================================
+# HOW SENSOR WORKS (Python Pattern):
+# ============================================================================
+#
+# 1. Sensor discovers files in S3 landing zone
+# 2. For each file, calls get_file_match(file_name, container_folder, patterns)
+#    - Returns: matched asset names (e.g., ["sales_data"] or ["marketing_data"])
+# 3. Creates RunRequest for each file:
+#
+#    RunRequest(
+#        run_key=f"{file_key}-{last_modified_utc.isoformat()}",
+#        asset_selection=selected_assets(file_names),  # Dynamic selection
+#        run_config={
+#            "ops": {
+#                "move_actl_files_processed_inbound": {
+#                    "config": {
+#                        "file_key_to_process": file_key,  # File-specific
+#                    }
+#                }
+#            }
+#        }
+#    )
+#
+# 4. selected_assets(file_names) returns:
+#    [AssetKey("move_actl_files_processed_inbound")] + 
+#    [AssetKey(file_name) for file_name in file_names]
+#
+# Example:
+# - File: "landing/sales/file.csv" → matches "sales_data"
+# - asset_selection: [move_actl_files_processed_inbound, sales_data]
+# - ops_config: {move_actl_files_processed_inbound: {config: {file_key_to_process: "landing/sales/file.csv"}}}
+#
+# ============================================================================
+
+# ============================================================================
+# FRAMEWORK IMPLEMENTATION NOTES:
+# ============================================================================
+#
+# To support this pattern, framework would need:
+#
+# 1. **Dynamic Asset Selection in Sensor**:
+#    - Sensor discovers files
+#    - Sensor matches files to asset names (via pattern matching)
+#    - Sensor creates RunRequest with dynamic asset_selection
+#
+# 2. **Ops Config Injection**:
+#    - Sensor injects file-specific config into ops_config
+#    - Assets access via: {{ ops.asset_name.config.field_name }}
+#
+# 3. **Pattern Matching**:
+#    - Framework needs to support get_file_match equivalent
+#    - Maps file_name + container_folder → asset names
+#
+# Current Framework:
+# - ✅ Supports asset_selection in RunRequest
+# - ✅ Supports ops_config in run_config
+# - ⚠️ Sensor doesn't dynamically select assets (uses fixed job selection)
+# - ⚠️ Sensor doesn't inject file-specific ops_config
+#
+# ============================================================================

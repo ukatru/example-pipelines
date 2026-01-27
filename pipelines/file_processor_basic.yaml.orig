@@ -1,0 +1,95 @@
+# File Processor Basic - Framework YAML Equivalent
+# This demonstrates what CAN be done with current framework capabilities
+# Gaps: File splitting, deletion, timestamp renaming, conditional logic
+
+assets:
+  - name: move_file_to_inbound
+    description: "Move file from landing zone to inbound processing zone"
+    group: file_processing
+    source:
+      type: S3
+      connection: S3
+      configs:
+        bucket_name: "{{ params.aws_s3_bucket }}"
+        prefix: "{{ params.landing_zone_prefix }}/{{ params.short_folder }}"
+        pattern: "{{ params.source_file_regex }}"
+    target:
+      type: S3
+      connection: S3
+      configs:
+        bucket_name: "{{ params.aws_s3_bucket }}"
+        prefix: "{{ params.processing_zone_prefix }}/{{ params.inbound_zone_prefix }}/{{ params.short_folder }}"
+        # ✅ NEW: Rename with timestamp
+        rename_with_timestamp: "{{ params.rename_with_timestamp | default(false) }}"
+        # ✅ NEW: Delete source after copy
+        delete_source: "{{ params.delete_source | default(false) }}"
+        # ✅ NEW: File splitting configuration
+        split_config:
+          split_type: "{{ params.split_type | default(null) }}"
+          head_line_number: "{{ params.head_line_number | default(null) }}"
+          foot_line_number: "{{ params.foot_line_number | default(null) }}"
+          start_of_data: "{{ params.start_of_data | default(null) }}"
+          end_of_data: "{{ params.end_of_data | default(null) }}"
+          delimiter: "{{ params.delimiter | default(',') }}"
+
+  - name: load_to_snowflake
+    description: "Load processed file to Snowflake"
+    group: file_processing
+    ins:
+      upstream:
+        key: move_file_to_inbound
+    source:
+      type: S3
+      connection: S3
+      configs:
+        bucket_name: "{{ upstream.result.bucket_name }}"
+        prefix: "{{ upstream.result.prefix }}"
+    target:
+      type: SNOWFLAKE
+      connection: SNOWFLAKE
+      configs:
+        table_name: "{{ params.target_table }}"
+        stage: "{{ params.snowflake_stage }}"
+        schema_strategy: "evolve"
+
+sensors:
+  - name: s3_preprocessor_sensor
+    type: S3
+    description: "Watch landing zone for new files"
+    source:
+      type: S3
+      connection: S3
+      configs:
+        # Sensors can now access job params from database for the target job
+        bucket_name: "{{ params.aws_s3_bucket }}"
+        prefix: "{{ params.landing_zone_prefix }}"
+        pattern: ".*\\.csv"
+        check_is_modifying: true
+    job: file_processor_job
+    minimum_interval_seconds: 120
+    default_status: RUNNING
+
+jobs:
+  - name: file_processor_job
+    description: "Process files from landing zone to Snowflake"
+    selection:
+      - move_file_to_inbound
+      - load_to_snowflake
+    params_schema:
+      aws_s3_bucket: "string|my-dagster-poc"
+      landing_zone_prefix: "string|landing"
+      processing_zone_prefix: "string|processing"
+      inbound_zone_prefix: "string|inbound"
+      short_folder: "string!"
+      source_file_regex: "string|.+\\.csv"
+      # File processing options
+      rename_with_timestamp: "bool|false"
+      delete_source: "bool|false"
+      split_type: "string"
+      head_line_number: "int"
+      foot_line_number: "int"
+      start_of_data: "string"
+      end_of_data: "string"
+      delimiter: "string|,"
+      target_table: "string!"
+      snowflake_stage: "string!"

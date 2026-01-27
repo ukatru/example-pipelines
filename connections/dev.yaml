@@ -23,29 +23,24 @@ resources:
       user: "sa"
       password: "{{env.SQL_PASSWORD}}"
 
-  #s3_prod:
-  #  type: S3Resource
-  #  config:
-  #    #bucket_name: "my-dagster-poc"
-  #    region_name: "us-west-2"
-  #    # Auth Options:
-  #    # 1. Explicit Keys (Local Dev)
-  #    access_key: "{{env.AWS_ACCESS_KEY_ID}}"
-  #    secret_key: "{{env.AWS_SECRET_ACCESS_KEY}}"
-  #    endpoint_url: "http://localhost:9000"
-  #
-  #    # 2. IRSA / Web Identity (EKS)
-  # No extra config needed if AWS_ROLE_ARN and AWS_WEB_IDENTITY_TOKEN_FILE env vars are set by Kubernetes.
-  # You can also explicitly specify:
-  # assume_role_arn: "arn:aws:iam::123456789012:role/my-role"
-  #
-  #sftp_prod:
-  #  type: SFTPResource
-  #  config:
-  #    host: "{{env.SFTP_HOST}}"
-  #    port: 22
-  #    username: "{{env.SFTP_USERNAME}}"
-  #    password: "{{env.SFTP_PASSWORD}}"
+  s3_prod:
+    type: S3Resource
+    config:
+      #bucket_name: "my-dagster-poc"
+      region_name: "us-west-2"
+      # Auth Options:
+      # 1. Explicit Keys (Local Dev)
+      access_key: "{{env.AWS_ACCESS_KEY_ID}}"
+      secret_key: "{{env.AWS_SECRET_ACCESS_KEY}}"
+      endpoint_url: "http://localhost:9000"
+
+  sftp_prod:
+    type: SFTPResource
+    config:
+      host: "{{env.SFTP_HOST}}"
+      port: 22
+      username: "{{env.SFTP_USERNAME}}"
+      password: "{{env.SFTP_PASSWORD}}"
   #
   snowflake_prod:
     type: SnowflakeResource
